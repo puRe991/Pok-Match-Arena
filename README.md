@@ -27,7 +27,24 @@ Danach `http://localhost:5173` öffnen.
 ```bash
 npm run build   # Produktions-Build (dist/)
 npm run lint    # oxlint
+npm test        # Vitest (einmaliger Lauf)
+npm run test:watch  # Vitest im Watch-Modus
 ```
+
+### Windows: „Cannot find module '...lightningcss.win32-ia32-msvc.node'"
+
+Dieser Fehler bedeutet, dass eine **32-Bit-Version von Node.js** installiert
+ist (`ia32`). Tailwind CSS v4 nutzt intern
+[lightningcss](https://github.com/parcel-bundler/lightningcss), das für
+Windows nur noch 64-Bit-Binaries (`x64`/`arm64`) veröffentlicht — ein 32-Bit-
+Build existiert nicht mehr. `npm install` meldet das inzwischen sofort und
+verständlich (`EBADPLATFORM`, dank der `os`/`cpu`-Felder in `package.json`),
+statt erst beim Start von `vite` mit einem kryptischen Modul-Fehler
+abzubrechen.
+
+Abhilfe: die 64-Bit-Version von Node.js installieren (nicht "x86") —
+https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
+`arm64` sein), `node_modules` löschen und `npm install` erneut ausführen.
 
 ## Features
 
