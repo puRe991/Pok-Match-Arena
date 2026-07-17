@@ -54,6 +54,11 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
 - Pack-Opening: Set wählen (Base Set, Jungle, Fossil, …), Pack mit 11 Karten
   öffnen (6 Common, 3 Uncommon, 1 Rare/Holo-Rare, 1 Basis-Energie), mit
   Flip-Animation, Holo-Glow und Pack-Verlauf
+- **Tägliche Gratis-Packs** im Stil von Pokémon TCG Pocket: Jeden Tag können
+  zwei kostenlose Boosterpacks geöffnet werden. Das Kontingent wird um
+  Mitternacht (lokale Zeit) zurückgesetzt – mit Live-Countdown im
+  Pack-Opening-Screen und Badge im Hauptmenü, das die verbleibenden
+  Gratis-Packs anzeigt
 - Deck-Builder: Sammlung durchsuchen/filtern, Deck zusammenstellen
   (60 Karten, max. 4x pro Karte, Basis-Energie unbegrenzt), mehrere Decks
   verwalten und ein aktives Deck festlegen

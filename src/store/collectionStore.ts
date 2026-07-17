@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { PACK_SET_IDS, loadPackSets, type TcgSet } from '../api/sets'
 import { buildRandomLegalDeck, expandDeck } from '../game/deckBuilder'
 import { isDeckLegal } from '../game/normalize'
+import { consumeFreePack, remainingFreePacks, type DailyFreeState } from '../game/dailyPacks'
 import { loadSetPool, openPack as drawPack } from '../game/packs'
 import type { CardDef } from '../game/types'
 
@@ -54,8 +55,10 @@ interface CollectionState {
   decks: Deck[]
   activeDeckId: string | null
   starterReady: boolean
+  dailyFree: DailyFreeState | null
 
   addCards: (cards: CardDef[]) => void
+  freePacksRemaining: () => number
   openSetPack: (set: TcgSet) => Promise<CardDef[]>
   createDeck: (name: string) => string
   updateDeck: (id: string, cardCounts: Record<string, number>) => void
@@ -73,6 +76,9 @@ export const useCollectionStore = create<CollectionState>()(
       decks: [],
       activeDeckId: null,
       starterReady: false,
+      dailyFree: null,
+
+      freePacksRemaining: () => remainingFreePacks(get().dailyFree),
 
       addCards: (cards: CardDef[]) => {
         set((state) => {
@@ -86,10 +92,14 @@ export const useCollectionStore = create<CollectionState>()(
       },
 
       openSetPack: async (tcgSet: TcgSet) => {
+        if (remainingFreePacks(get().dailyFree) <= 0) {
+          throw new Error('Keine kostenlosen Packs mehr für heute – neue Gratis-Packs gibt es um Mitternacht!')
+        }
         const pool = await loadSetPool(tcgSet)
         const cards = drawPack(pool)
         get().addCards(cards)
         set((state) => ({
+          dailyFree: consumeFreePack(state.dailyFree),
           packHistory: [
             {
               id: newId(),

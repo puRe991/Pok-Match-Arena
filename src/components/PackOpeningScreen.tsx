@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { loadPackSets, type TcgSet } from '../api/sets'
+import { DAILY_FREE_PACKS, formatTimeUntilReset, remainingFreePacks } from '../game/dailyPacks'
 import { useCollectionStore } from '../store/collectionStore'
 import type { CardDef } from '../game/types'
 
@@ -55,8 +56,13 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
   const [selected, setSelected] = useState<TcgSet | null>(null)
   const [opening, setOpening] = useState(false)
   const [revealed, setRevealed] = useState<CardDef[] | null>(null)
+  const [openError, setOpenError] = useState<string | null>(null)
+  const [now, setNow] = useState(() => new Date())
   const openSetPack = useCollectionStore((s) => s.openSetPack)
   const packHistory = useCollectionStore((s) => s.packHistory)
+  const dailyFree = useCollectionStore((s) => s.dailyFree)
+
+  const freeLeft = remainingFreePacks(dailyFree, now)
 
   useEffect(() => {
     loadPackSets().then((s) => {
@@ -65,13 +71,24 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
     })
   }, [])
 
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   async function handleOpen() {
-    if (!selected || opening) return
+    if (!selected || opening || freeLeft <= 0) return
     setOpening(true)
     setRevealed(null)
-    const cards = await openSetPack(selected)
-    setOpening(false)
-    setRevealed(cards)
+    setOpenError(null)
+    try {
+      const cards = await openSetPack(selected)
+      setRevealed(cards)
+    } catch (err) {
+      setOpenError(err instanceof Error ? err.message : 'Pack konnte nicht geöffnet werden.')
+    } finally {
+      setOpening(false)
+    }
   }
 
   return (
@@ -82,6 +99,26 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
         </button>
         <h1 className="text-xl font-bold text-white">Pack-Opening</h1>
         <div />
+      </div>
+
+      <div className="flex flex-col items-center gap-1 rounded-2xl border border-yellow-500/30 bg-yellow-500/5 p-3 text-center">
+        <div className="text-sm font-bold text-yellow-300">
+          Tägliche Gratis-Packs: {freeLeft} / {DAILY_FREE_PACKS}
+        </div>
+        <div className="flex gap-1.5" aria-hidden>
+          {Array.from({ length: DAILY_FREE_PACKS }, (_, i) => (
+            <span key={i} className={`text-lg ${i < freeLeft ? '' : 'opacity-25 grayscale'}`}>
+              🎴
+            </span>
+          ))}
+        </div>
+        {freeLeft > 0 ? (
+          <p className="text-xs text-slate-400">Öffne jeden Tag zwei kostenlose Boosterpacks!</p>
+        ) : (
+          <p className="text-xs text-slate-400">
+            Neue Gratis-Packs in <span className="font-mono text-slate-200">{formatTimeUntilReset(now)}</span>
+          </p>
+        )}
       </div>
 
       <div>
@@ -111,19 +148,21 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
             <motion.button
               key="pack"
               type="button"
-              disabled={!selected || opening}
+              disabled={!selected || opening || freeLeft <= 0}
               onClick={handleOpen}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               animate={opening ? { rotate: [0, -3, 3, -3, 3, 0] } : {}}
               transition={opening ? { duration: 0.4, repeat: Infinity } : {}}
-              className="flex h-56 w-40 flex-col items-center justify-center gap-2 rounded-2xl border-4 border-yellow-400 bg-gradient-to-br from-yellow-500 via-orange-500 to-red-600 font-black text-white shadow-2xl disabled:opacity-50"
+              className="flex h-56 w-40 flex-col items-center justify-center gap-2 rounded-2xl border-4 border-yellow-400 bg-gradient-to-br from-yellow-500 via-orange-500 to-red-600 font-black text-white shadow-2xl disabled:opacity-50 disabled:grayscale"
             >
               <span className="text-3xl">🎴</span>
-              <span>{opening ? 'Öffne…' : 'Pack öffnen'}</span>
+              <span>{opening ? 'Öffne…' : freeLeft > 0 ? 'Gratis-Pack öffnen' : 'Ausverkauft für heute'}</span>
             </motion.button>
           )}
         </AnimatePresence>
+
+        {openError && <p className="text-sm text-amber-400">{openError}</p>}
 
         {revealed && (
           <div className="w-full">
@@ -133,12 +172,19 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
               ))}
             </div>
             <div className="mt-6 flex justify-center gap-3">
-              <button
-                onClick={handleOpen}
-                className="rounded-full bg-yellow-500 px-6 py-2 font-bold text-slate-900 hover:bg-yellow-400"
-              >
-                Noch ein Pack öffnen
-              </button>
+              {freeLeft > 0 ? (
+                <button
+                  onClick={handleOpen}
+                  className="rounded-full bg-yellow-500 px-6 py-2 font-bold text-slate-900 hover:bg-yellow-400"
+                >
+                  Noch ein Gratis-Pack öffnen ({freeLeft} übrig)
+                </button>
+              ) : (
+                <p className="text-sm text-slate-400">
+                  Alle Gratis-Packs für heute geöffnet – neue in{' '}
+                  <span className="font-mono text-slate-200">{formatTimeUntilReset(now)}</span>
+                </p>
+              )}
             </div>
           </div>
         )}
