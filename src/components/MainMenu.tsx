@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { remainingFreePacks } from '../game/dailyPacks'
 import { useGameStore } from '../store/gameStore'
 import { useCollectionStore } from '../store/collectionStore'
 import type { View } from '../App'
@@ -11,6 +12,8 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
   const joinMultiplayerGame = useGameStore((s) => s.joinMultiplayerGame)
   const decks = useCollectionStore((s) => s.decks)
   const activeDeckId = useCollectionStore((s) => s.activeDeckId)
+  const dailyFree = useCollectionStore((s) => s.dailyFree)
+  const freePacksLeft = remainingFreePacks(dailyFree)
   const [joinCode, setJoinCode] = useState('')
   const [showJoin, setShowJoin] = useState(false)
 
@@ -86,9 +89,17 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
           <button
             type="button"
             onClick={() => onNavigate('packs')}
-            className="flex-1 rounded-full border border-purple-500/50 bg-purple-500/10 px-4 py-2 text-sm font-bold text-purple-200 hover:bg-purple-500/20"
+            className="relative flex-1 rounded-full border border-purple-500/50 bg-purple-500/10 px-4 py-2 text-sm font-bold text-purple-200 hover:bg-purple-500/20"
           >
             🎴 Packs öffnen
+            {freePacksLeft > 0 && (
+              <span
+                title={`${freePacksLeft} kostenlose Boosterpacks heute verfügbar`}
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-black text-white shadow"
+              >
+                {freePacksLeft}
+              </span>
+            )}
           </button>
           <button
             type="button"

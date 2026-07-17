@@ -85,6 +85,48 @@ describe('collectionStore', () => {
     expect(totalInCollection).toBe(cards.length)
   })
 
+  it('openSetPack allows two free packs per day and rejects the third', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ data: [] }) })),
+    )
+    const { useCollectionStore } = await import('./collectionStore')
+    const set = { id: 'daily-limit-set', name: 'Test Set', series: 'Test', total: 0, releaseDate: '', logo: '', symbol: '' }
+
+    expect(useCollectionStore.getState().freePacksRemaining()).toBe(2)
+    await useCollectionStore.getState().openSetPack(set)
+    expect(useCollectionStore.getState().freePacksRemaining()).toBe(1)
+    await useCollectionStore.getState().openSetPack(set)
+    expect(useCollectionStore.getState().freePacksRemaining()).toBe(0)
+
+    await expect(useCollectionStore.getState().openSetPack(set)).rejects.toThrow(/Keine kostenlosen Packs/)
+    expect(useCollectionStore.getState().packHistory).toHaveLength(2)
+  })
+
+  it('openSetPack grants fresh free packs on the next calendar day', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ data: [] }) })),
+    )
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 6, 17, 12, 0, 0))
+      const { useCollectionStore } = await import('./collectionStore')
+      const set = { id: 'daily-reset-set', name: 'Test Set', series: 'Test', total: 0, releaseDate: '', logo: '', symbol: '' }
+
+      await useCollectionStore.getState().openSetPack(set)
+      await useCollectionStore.getState().openSetPack(set)
+      expect(useCollectionStore.getState().freePacksRemaining()).toBe(0)
+
+      vi.setSystemTime(new Date(2026, 6, 18, 0, 0, 1))
+      expect(useCollectionStore.getState().freePacksRemaining()).toBe(2)
+      await expect(useCollectionStore.getState().openSetPack(set)).resolves.toHaveLength(11)
+      expect(useCollectionStore.getState().dailyFree).toEqual({ day: '2026-07-18', opened: 1 })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('ensureStarterDeck is idempotent and only creates one starter deck', async () => {
     vi.stubGlobal(
       'fetch',
