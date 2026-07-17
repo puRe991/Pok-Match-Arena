@@ -1,24 +1,28 @@
-import type { ElementType, EnergyCardDef, PokemonCardDef } from '../game/types'
+import type { AttackDef, ElementType, EnergyCardDef, PokemonCardDef, Stage } from '../game/types'
 
-// Offline safety net used only if the live Pokemon TCG API request fails
-// (network unavailable, rate limited, etc). Stats are hand-picked so the
-// game stays playable even without a network connection.
+// Offline safety net used only if the live Pokemon TCG API can't be reached
+// (network unavailable, rate limited, etc). Stats are hand-picked so packs,
+// starter decks and the NPC deck still work without a network connection.
 function mon(
   id: string,
   name: string,
   pokemonType: ElementType,
-  stage: 'basic' | 'stage1',
+  stage: Stage,
   hp: number,
-  attacks: PokemonCardDef['attacks'],
+  attacks: AttackDef[],
   retreatCost: number,
   weakness: ElementType | undefined,
   evolvesFrom: string | undefined,
 ): PokemonCardDef {
   return {
     kind: 'pokemon',
-    id,
+    id: `offline-${id}`,
     uid: '',
     name,
+    setId: 'offline',
+    setName: 'Offline-Kartensatz',
+    number: id,
+    rarity: 'Common',
     pokemonType,
     stage,
     evolvesFrom,
@@ -31,19 +35,9 @@ function mon(
   }
 }
 
-export const FALLBACK_POKEMON: Record<string, PokemonCardDef> = {
-  Charmander: mon(
-    '46',
-    'Charmander',
-    'Fire',
-    'basic',
-    60,
-    [{ name: 'Ember', cost: ['Fire'], damage: 20, text: '' }],
-    1,
-    'Water',
-    undefined,
-  ),
-  Charmeleon: mon(
+export const FALLBACK_POKEMON: PokemonCardDef[] = [
+  mon('46', 'Charmander', 'Fire', 'basic', 60, [{ name: 'Ember', cost: ['Fire'], damage: 20, text: '' }], 1, 'Water', undefined),
+  mon(
     '24',
     'Charmeleon',
     'Fire',
@@ -54,18 +48,8 @@ export const FALLBACK_POKEMON: Record<string, PokemonCardDef> = {
     'Water',
     'Charmander',
   ),
-  Squirtle: mon(
-    '63',
-    'Squirtle',
-    'Water',
-    'basic',
-    60,
-    [{ name: 'Water Gun', cost: ['Water'], damage: 20, text: '' }],
-    1,
-    'Lightning',
-    undefined,
-  ),
-  Wartortle: mon(
+  mon('63', 'Squirtle', 'Water', 'basic', 60, [{ name: 'Water Gun', cost: ['Water'], damage: 20, text: '' }], 1, 'Lightning', undefined),
+  mon(
     '42',
     'Wartortle',
     'Water',
@@ -76,18 +60,8 @@ export const FALLBACK_POKEMON: Record<string, PokemonCardDef> = {
     'Lightning',
     'Squirtle',
   ),
-  Bulbasaur: mon(
-    '44',
-    'Bulbasaur',
-    'Grass',
-    'basic',
-    60,
-    [{ name: 'Vine Whip', cost: ['Grass'], damage: 20, text: '' }],
-    1,
-    'Fire',
-    undefined,
-  ),
-  Ivysaur: mon(
+  mon('44', 'Bulbasaur', 'Grass', 'basic', 60, [{ name: 'Vine Whip', cost: ['Grass'], damage: 20, text: '' }], 1, 'Fire', undefined),
+  mon(
     '30',
     'Ivysaur',
     'Grass',
@@ -98,18 +72,8 @@ export const FALLBACK_POKEMON: Record<string, PokemonCardDef> = {
     'Fire',
     'Bulbasaur',
   ),
-  Pikachu: mon(
-    '58',
-    'Pikachu',
-    'Lightning',
-    'basic',
-    60,
-    [{ name: 'Thunder Shock', cost: ['Lightning'], damage: 20, text: '' }],
-    1,
-    'Fighting',
-    undefined,
-  ),
-  Raichu: mon(
+  mon('58', 'Pikachu', 'Lightning', 'basic', 60, [{ name: 'Thunder Shock', cost: ['Lightning'], damage: 20, text: '' }], 1, 'Fighting', undefined),
+  mon(
     '14',
     'Raichu',
     'Lightning',
@@ -120,18 +84,8 @@ export const FALLBACK_POKEMON: Record<string, PokemonCardDef> = {
     'Fighting',
     'Pikachu',
   ),
-  Machop: mon(
-    '52',
-    'Machop',
-    'Fighting',
-    'basic',
-    70,
-    [{ name: 'Karate Chop', cost: ['Fighting'], damage: 20, text: '' }],
-    1,
-    'Psychic',
-    undefined,
-  ),
-  Machoke: mon(
+  mon('52', 'Machop', 'Fighting', 'basic', 70, [{ name: 'Karate Chop', cost: ['Fighting'], damage: 20, text: '' }], 1, 'Psychic', undefined),
+  mon(
     '34',
     'Machoke',
     'Fighting',
@@ -142,18 +96,8 @@ export const FALLBACK_POKEMON: Record<string, PokemonCardDef> = {
     'Psychic',
     'Machop',
   ),
-  Abra: mon(
-    '43',
-    'Abra',
-    'Psychic',
-    'basic',
-    50,
-    [{ name: 'Confuse Ray', cost: ['Psychic'], damage: 10, text: '' }],
-    1,
-    undefined,
-    undefined,
-  ),
-  Kadabra: mon(
+  mon('43', 'Abra', 'Psychic', 'basic', 50, [{ name: 'Confuse Ray', cost: ['Psychic'], damage: 10, text: 'Confuses the Defending Pokémon.' }], 1, undefined, undefined),
+  mon(
     '32',
     'Kadabra',
     'Psychic',
@@ -164,37 +108,33 @@ export const FALLBACK_POKEMON: Record<string, PokemonCardDef> = {
     undefined,
     'Abra',
   ),
-  Eevee: mon(
-    '51',
-    'Eevee',
-    'Colorless',
-    'basic',
-    60,
-    [{ name: 'Tackle', cost: ['Colorless'], damage: 20, text: '' }],
-    1,
-    undefined,
-    undefined,
-  ),
-}
+  mon('51', 'Eevee', 'Colorless', 'basic', 60, [{ name: 'Tackle', cost: ['Colorless'], damage: 20, text: '' }], 1, undefined, undefined),
+]
 
 function energy(id: string, type: ElementType): EnergyCardDef {
   return {
     kind: 'energy',
-    id,
+    id: `offline-${id}`,
     uid: '',
     name: `${type} Energy`,
+    setId: 'offline',
+    setName: 'Offline-Kartensatz',
+    number: id,
+    rarity: 'Common',
     energyType: type,
+    isBasicEnergy: true,
     imageSmall: `https://images.pokemontcg.io/base1/${id}.png`,
     imageLarge: `https://images.pokemontcg.io/base1/${id}_hires.png`,
   }
 }
 
-export const FALLBACK_ENERGY: Record<ElementType, EnergyCardDef> = {
-  Fire: energy('98', 'Fire'),
-  Water: energy('102', 'Water'),
-  Grass: energy('99', 'Grass'),
-  Lightning: energy('100', 'Lightning'),
-  Fighting: energy('97', 'Fighting'),
-  Psychic: energy('101', 'Psychic'),
-  Colorless: energy('101', 'Colorless'),
-}
+export const FALLBACK_ENERGY: EnergyCardDef[] = [
+  energy('97', 'Fighting'),
+  energy('98', 'Fire'),
+  energy('99', 'Grass'),
+  energy('100', 'Lightning'),
+  energy('101', 'Psychic'),
+  energy('102', 'Water'),
+]
+
+export const FALLBACK_POOL = [...FALLBACK_POKEMON, ...FALLBACK_ENERGY]

@@ -34,6 +34,18 @@ export function GameBoard() {
         clearTimeout(t2)
       }
     }
+    if (ev.type === 'status') {
+      const labels: Record<string, string> = {
+        poisoned: 'Vergiftet ☠️',
+        burned: 'Verbrannt 🔥',
+        asleep: 'Eingeschlafen 💤',
+        paralyzed: 'Paralysiert ⚡',
+        confused: 'Verwirrt ❓',
+      }
+      setToast(labels[ev.status] ?? ev.status)
+      const t = setTimeout(() => setToast(null), 1400)
+      return () => clearTimeout(t)
+    }
   }, [gameState?.lastEvent, gameState?.players])
 
   if (!gameState) return null
@@ -43,7 +55,7 @@ export function GameBoard() {
   const me = gameState.players[mySide]
   const opp = gameState.players[oppSide]
   const myTurn = isMyTurn(gameState)
-  const iNeedPromote = me.active === null && gameState.activeSide === mySide && gameState.phase === 'main'
+  const iNeedPromote = me.active === null && gameState.phase === 'main'
   const turnNumber = gameState.turnNumber
 
   function clearPending() {
@@ -158,6 +170,7 @@ export function GameBoard() {
         selectableIds={new Set()}
         onSelectMon={() => {}}
         shakeInstanceId={shakeId}
+        showHandCount
       />
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_220px]">
@@ -198,9 +211,9 @@ export function GameBoard() {
         {pendingCard && (
           <div className="flex items-center justify-between px-3 py-1 text-xs text-sky-300">
             <span>
-              {pendingCard.kind === 'energy'
-                ? 'Wähle ein Pokémon für die Energie.'
-                : `Wähle ein ${pendingCard.evolvesFrom} zum Entwickeln.`}
+              {pendingCard.kind === 'pokemon'
+                ? `Wähle ein ${pendingCard.evolvesFrom} zum Entwickeln.`
+                : 'Wähle ein Pokémon für die Energie.'}
             </span>
             <button onClick={clearPending} className="text-slate-400 hover:text-white">
               Abbrechen

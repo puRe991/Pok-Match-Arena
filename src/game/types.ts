@@ -7,7 +7,9 @@ export type ElementType =
   | 'Psychic'
   | 'Colorless'
 
-export type Stage = 'basic' | 'stage1'
+export type Stage = 'basic' | 'stage1' | 'stage2'
+
+export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Holo Rare'
 
 export interface AttackDef {
   name: string
@@ -16,11 +18,20 @@ export interface AttackDef {
   text: string
 }
 
-export interface PokemonCardDef {
-  kind: 'pokemon'
+interface CardMeta {
   id: string
   uid: string
   name: string
+  setId: string
+  setName: string
+  number: string
+  rarity: Rarity
+  imageSmall: string
+  imageLarge: string
+}
+
+export interface PokemonCardDef extends CardMeta {
+  kind: 'pokemon'
   pokemonType: ElementType
   stage: Stage
   evolvesFrom?: string
@@ -28,21 +39,22 @@ export interface PokemonCardDef {
   attacks: AttackDef[]
   retreatCost: number
   weakness?: ElementType
-  imageSmall: string
-  imageLarge: string
 }
 
-export interface EnergyCardDef {
+export interface EnergyCardDef extends CardMeta {
   kind: 'energy'
-  id: string
-  uid: string
-  name: string
   energyType: ElementType
-  imageSmall: string
-  imageLarge: string
+  isBasicEnergy: boolean
 }
 
-export type CardDef = PokemonCardDef | EnergyCardDef
+export interface TrainerCardDef extends CardMeta {
+  kind: 'trainer'
+  text: string
+}
+
+export type CardDef = PokemonCardDef | EnergyCardDef | TrainerCardDef
+
+export type StatusEffect = 'poisoned' | 'burned' | 'asleep' | 'paralyzed' | 'confused'
 
 export interface InPlayPokemon {
   instanceId: string
@@ -51,6 +63,7 @@ export interface InPlayPokemon {
   attachedEnergy: EnergyCardDef[]
   enteredPlayTurn: number
   evolvedOnTurn: number | null
+  statuses: StatusEffect[]
 }
 
 export type Side = 'p1' | 'p2'
@@ -64,6 +77,7 @@ export interface PlayerState {
   active: InPlayPokemon | null
   bench: InPlayPokemon[]
   discard: CardDef[]
+  prizes: CardDef[]
   hasAttachedEnergyThisTurn: boolean
   hasRetreatedThisTurn: boolean
   attackedThisTurn: boolean
@@ -96,6 +110,7 @@ export type GameEvent =
   | { type: 'attack'; side: Side; damage: number; superEffective: boolean }
   | { type: 'knockout'; side: Side }
   | { type: 'draw'; side: Side }
+  | { type: 'status'; side: Side; status: StatusEffect }
   | { type: 'none' }
 
 export type GameAction =

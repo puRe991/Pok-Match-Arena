@@ -1,8 +1,8 @@
 import Peer, { type DataConnection } from 'peerjs'
-import type { GameAction, GameState } from '../game/types'
+import type { CardDef, GameAction, GameState } from '../game/types'
 
 export type WireMessage =
-  | { type: 'hello'; name: string }
+  | { type: 'hello'; name: string; deckCards: CardDef[] }
   | { type: 'state'; state: GameState }
   | { type: 'action'; action: GameAction }
 

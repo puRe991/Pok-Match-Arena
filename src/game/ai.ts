@@ -24,9 +24,11 @@ export function decideAiSetupAction(state: GameState, side: Side): GameAction | 
 }
 
 export function decideNextAiAction(state: GameState, side: Side): GameAction | null {
-  if (state.phase !== 'main' || state.activeSide !== side) return null
+  if (state.phase !== 'main') return null
   const player = state.players[side]
 
+  // Promoting a new active is not restricted to your own turn (e.g. after a
+  // between-turns status knockout), so this check runs before the turn gate.
   if (!player.active) {
     if (player.bench.length === 0) return null
     const best = [...player.bench].sort(
@@ -34,6 +36,8 @@ export function decideNextAiAction(state: GameState, side: Side): GameAction | n
     )[0]
     return { type: 'PROMOTE', side, benchInstanceId: best.instanceId }
   }
+
+  if (state.activeSide !== side) return null
 
   if (player.bench.length < 5) {
     const basic = player.hand.find((c) => c.kind === 'pokemon' && c.stage === 'basic')
@@ -77,7 +81,9 @@ export function decideNextAiAction(state: GameState, side: Side): GameAction | n
   const activeHp = topStage(player.active).hp - player.active.damage
   const activeMaxHp = topStage(player.active).hp
   const retreatCost = topStage(player.active).retreatCost
+  const canRetreat = !player.active.statuses.includes('asleep') && !player.active.statuses.includes('paralyzed')
   if (
+    canRetreat &&
     !player.hasRetreatedThisTurn &&
     activeHp / activeMaxHp <= 0.35 &&
     player.active.attachedEnergy.length >= retreatCost &&

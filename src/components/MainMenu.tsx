@@ -1,28 +1,39 @@
 import { useState } from 'react'
 import { useGameStore } from '../store/gameStore'
+import { useCollectionStore } from '../store/collectionStore'
+import type { View } from '../App'
 
-export function MainMenu() {
-  const pool = useGameStore((s) => s.pool)
-  const poolError = useGameStore((s) => s.poolError)
+export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
+  const starting = useGameStore((s) => s.starting)
+  const startError = useGameStore((s) => s.startError)
   const startLocalGame = useGameStore((s) => s.startLocalGame)
   const hostMultiplayerGame = useGameStore((s) => s.hostMultiplayerGame)
   const joinMultiplayerGame = useGameStore((s) => s.joinMultiplayerGame)
+  const decks = useCollectionStore((s) => s.decks)
+  const activeDeckId = useCollectionStore((s) => s.activeDeckId)
   const [joinCode, setJoinCode] = useState('')
   const [showJoin, setShowJoin] = useState(false)
 
-  const ready = !!pool
+  const activeDeck = decks.find((d) => d.id === activeDeckId)
+  const ready = !!activeDeck && !starting
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 p-6 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
       <div>
         <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
           Pokémon <span className="text-yellow-400">Duell-Arena</span>
         </h1>
-        <p className="mt-2 text-sm text-slate-400">Ein vereinfachtes TCG-Duell mit echten Pokémon-Karten</p>
+        <p className="mt-2 text-sm text-slate-400">Sammle Karten, baue dein Deck und tritt zum Duell an</p>
       </div>
 
-      {!ready && !poolError && <p className="text-sm text-slate-400">Lade Kartendaten…</p>}
-      {poolError && <p className="text-sm text-amber-400">{poolError}</p>}
+      {!activeDeck && <p className="text-sm text-slate-400">Lade Starter-Deck…</p>}
+      {activeDeck && (
+        <p className="text-xs text-slate-500">
+          Aktives Deck: <span className="text-slate-300">{activeDeck.name}</span>
+        </p>
+      )}
+      {starting && <p className="text-sm text-slate-400">Gegner-Deck wird gemischt…</p>}
+      {startError && <p className="text-sm text-amber-400">{startError}</p>}
 
       <div className="flex w-full max-w-xs flex-col gap-3">
         <button
@@ -70,6 +81,23 @@ export function MainMenu() {
             </button>
           </div>
         )}
+
+        <div className="mt-2 flex gap-3">
+          <button
+            type="button"
+            onClick={() => onNavigate('packs')}
+            className="flex-1 rounded-full border border-purple-500/50 bg-purple-500/10 px-4 py-2 text-sm font-bold text-purple-200 hover:bg-purple-500/20"
+          >
+            🎴 Packs öffnen
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate('deckbuilder')}
+            className="flex-1 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200 hover:bg-emerald-500/20"
+          >
+            🛠 Deck-Builder
+          </button>
+        </div>
       </div>
     </div>
   )

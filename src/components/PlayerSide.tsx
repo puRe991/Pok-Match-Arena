@@ -100,6 +100,7 @@ export function PlayerSide({
               <span className="text-[10px] text-slate-400">Hand ({player.hand.length})</span>
             </div>
           )}
+          <PileBadge label="Prizes" count={player.prizes.length} />
           <PileBadge label="Deck" count={player.deck.length} />
           <PileBadge label="Ablage" count={player.discard.length} />
         </div>

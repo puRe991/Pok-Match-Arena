@@ -1,7 +1,15 @@
 import clsx from 'clsx'
 import { currentHp, topStage } from '../game/engine'
-import type { InPlayPokemon } from '../game/types'
+import type { InPlayPokemon, StatusEffect } from '../game/types'
 import { TypeBadge } from './CardView'
+
+const STATUS_ICON: Record<StatusEffect, string> = {
+  poisoned: '☠️',
+  burned: '🔥',
+  asleep: '💤',
+  paralyzed: '⚡',
+  confused: '❓',
+}
 
 interface BoardPokemonProps {
   mon: InPlayPokemon
@@ -47,6 +55,15 @@ export function BoardPokemon({ mon, active, selectable, selected, onClick, flash
           <span className="absolute left-1 top-1 rounded bg-indigo-600 px-1 text-[8px] font-bold text-white">
             EVO
           </span>
+        )}
+        {mon.statuses.length > 0 && (
+          <div className="absolute bottom-5 left-0 right-0 flex flex-wrap justify-center gap-0.5">
+            {mon.statuses.map((s) => (
+              <span key={s} title={s} className="text-xs leading-none drop-shadow">
+                {STATUS_ICON[s]}
+              </span>
+            ))}
+          </div>
         )}
       </div>
       <div className="flex w-full items-center gap-1">
