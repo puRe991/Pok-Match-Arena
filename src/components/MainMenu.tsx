@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import { remainingFreePacks } from '../game/dailyPacks'
+import { avatarById, rankForRating } from '../profile/profile'
 import { useGameStore } from '../store/gameStore'
 import { useCollectionStore } from '../store/collectionStore'
+import { useProfileStore } from '../store/profileStore'
 import type { View } from '../App'
 
 export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
+  const profileName = useProfileStore((s) => s.name)
+  const avatarId = useProfileStore((s) => s.avatarId)
+  const rating = useProfileStore((s) => s.stats.rating)
   const starting = useGameStore((s) => s.starting)
   const startError = useGameStore((s) => s.startError)
   const startLocalGame = useGameStore((s) => s.startLocalGame)
@@ -19,9 +24,27 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
 
   const activeDeck = decks.find((d) => d.id === activeDeckId)
   const ready = !!activeDeck && !starting
+  const rank = rankForRating(rating)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
+      <button
+        type="button"
+        onClick={() => onNavigate('profile')}
+        title="Trainer-Profil öffnen"
+        className="flex items-center gap-3 rounded-full border border-slate-700 bg-slate-800/80 py-1.5 pl-2 pr-5 transition-colors hover:border-slate-500"
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-yellow-400/50 bg-slate-900 text-lg">
+          {avatarById(avatarId).emoji}
+        </span>
+        <span className="text-left">
+          <span className="block text-sm font-bold leading-tight text-white">{profileName}</span>
+          <span className={`block text-xs font-bold leading-tight ${rank.colorClass}`}>
+            {rank.icon} {rank.label} · {rating}
+          </span>
+        </span>
+      </button>
+
       <div>
         <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
           Pokémon <span className="text-yellow-400">Duell-Arena</span>

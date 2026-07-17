@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { rankForRating } from '../profile/profile'
 import { useGameStore, isMyTurn } from '../store/gameStore'
+import { useProfileStore } from '../store/profileStore'
 import type { CardDef, Side } from '../game/types'
 import { PlayerSide } from './PlayerSide'
 import { HandView } from './HandView'
@@ -15,6 +17,10 @@ export function GameBoard() {
   const gameState = useGameStore((s) => s.gameState)
   const dispatch = useGameStore((s) => s.dispatch)
   const backToMenu = useGameStore((s) => s.backToMenu)
+  const opponentProfile = useGameStore((s) => s.opponentProfile)
+  const myAvatarId = useProfileStore((s) => s.avatarId)
+  const myRating = useProfileStore((s) => s.stats.rating)
+  const lastMatch = useProfileStore((s) => s.matchHistory[0])
   const [pendingCard, setPendingCard] = useState<CardDef | null>(null)
   const [shakeId, setShakeId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -132,12 +138,30 @@ export function GameBoard() {
 
   if (gameState.phase === 'gameover') {
     const won = gameState.winner === mySide
+    const eloResult =
+      gameState.mode !== 'local' && lastMatch?.mode === 'multiplayer' && lastMatch.ratingAfter !== null
+        ? lastMatch
+        : null
+    const newRank = eloResult ? rankForRating(eloResult.ratingAfter!) : null
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
         <h1 className={`text-4xl font-black ${won ? 'text-yellow-300' : 'text-slate-400'}`}>
           {won ? 'Sieg!' : 'Niederlage'}
         </h1>
         <p className="max-w-md text-slate-300">{gameState.winnerReason}</p>
+        {eloResult && newRank && (
+          <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-5 py-2 text-sm font-bold">
+            <span className={eloResult.ratingDelta >= 0 ? 'text-green-400' : 'text-red-400'}>
+              {eloResult.ratingDelta >= 0 ? '+' : ''}
+              {eloResult.ratingDelta} Elo
+            </span>
+            <span className="text-slate-500">→</span>
+            <span className="text-white">{eloResult.ratingAfter}</span>
+            <span className={newRank.colorClass}>
+              {newRank.icon} {newRank.label}
+            </span>
+          </div>
+        )}
         <button
           type="button"
           onClick={backToMenu}
@@ -171,6 +195,11 @@ export function GameBoard() {
         onSelectMon={() => {}}
         shakeInstanceId={shakeId}
         showHandCount
+        profileBadge={
+          gameState.mode !== 'local' && opponentProfile
+            ? { avatarId: opponentProfile.avatarId, rating: opponentProfile.rating }
+            : null
+        }
       />
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_220px]">
@@ -184,6 +213,7 @@ export function GameBoard() {
             onSelectMon={handleBoardSelect}
             shakeInstanceId={shakeId}
             showHandCount={false}
+            profileBadge={{ avatarId: myAvatarId, rating: myRating }}
           />
         </div>
         <div className="order-1 flex flex-col gap-2 sm:order-2">

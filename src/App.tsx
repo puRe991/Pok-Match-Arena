@@ -7,8 +7,9 @@ import { SetupScreen } from './components/SetupScreen'
 import { GameBoard } from './components/GameBoard'
 import { PackOpeningScreen } from './components/PackOpeningScreen'
 import { DeckBuilderScreen } from './components/DeckBuilderScreen'
+import { ProfileScreen } from './components/ProfileScreen'
 
-export type View = 'home' | 'packs' | 'deckbuilder'
+export type View = 'home' | 'packs' | 'deckbuilder' | 'profile'
 
 function App() {
   const ensureStarterDeck = useCollectionStore((s) => s.ensureStarterDeck)
@@ -23,6 +24,7 @@ function App() {
   if (!gameState) {
     if (view === 'packs') return <PackOpeningScreen onBack={() => setView('home')} />
     if (view === 'deckbuilder') return <DeckBuilderScreen onBack={() => setView('home')} />
+    if (view === 'profile') return <ProfileScreen onBack={() => setView('home')} />
     if (screen === 'menu') return <MainMenu onNavigate={setView} />
     return <LobbyScreen />
   }

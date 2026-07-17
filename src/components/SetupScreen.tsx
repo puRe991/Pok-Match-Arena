@@ -1,10 +1,12 @@
 import { useGameStore } from '../store/gameStore'
 import { BoardPokemon } from './BoardPokemon'
 import { CardView } from './CardView'
+import { ProfileTag } from './ProfileTag'
 
 export function SetupScreen() {
   const gameState = useGameStore((s) => s.gameState)
   const dispatch = useGameStore((s) => s.dispatch)
+  const opponentProfile = useGameStore((s) => s.opponentProfile)
   if (!gameState) return null
 
   const me = gameState.players[gameState.mySide]
@@ -26,6 +28,13 @@ export function SetupScreen() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 p-4 sm:p-8">
       <h1 className="text-center text-2xl font-bold text-white">Vorbereitung</h1>
+      {gameState.mode !== 'local' && opponentProfile && (
+        <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-4 py-1.5 text-sm">
+          <span className="text-slate-400">Gegner:</span>
+          <ProfileTag avatarId={opponentProfile.avatarId} rating={opponentProfile.rating} />
+          <span className="font-bold text-white">{opponent.name}</span>
+        </div>
+      )}
       <p className="max-w-lg text-center text-sm text-slate-400">
         Wähle dein aktives Pokémon (erster Klick) und lege optional weitere Basis-Pokémon auf die Bank. Wenn du
         fertig bist, klicke auf „Bereit“.

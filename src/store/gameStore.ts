@@ -6,7 +6,9 @@ import { applyAction, createInitialState } from '../game/engine'
 import { loadSetPool } from '../game/packs'
 import type { CardDef, GameAction, GameState, Side } from '../game/types'
 import { MultiplayerLink, type WireMessage } from '../multiplayer/peer'
+import type { PeerProfile } from '../profile/profile'
 import { expandDeckFromCollection, useCollectionStore } from './collectionStore'
+import { useProfileStore } from './profileStore'
 
 export type Screen = 'menu' | 'setup' | 'game' | 'lobby'
 
@@ -17,6 +19,7 @@ interface GameStore {
   sessionCode: string | null
   mpStatus: 'idle' | 'hosting' | 'joining' | 'connected' | 'error'
   mpError: string | null
+  opponentProfile: PeerProfile | null
   starting: boolean
   startError: string | null
 
@@ -73,11 +76,28 @@ export const useGameStore = create<GameStore>((set, get) => {
     }, 550)
   }
 
+  function recordResultIfGameEnded(prev: GameState | null, next: GameState) {
+    if (next.phase !== 'gameover' || !next.winner) return
+    if (prev && prev.phase === 'gameover') return
+    const isMp = next.mode !== 'local'
+    const oppSide: Side = next.mySide === 'p1' ? 'p2' : 'p1'
+    const opp = get().opponentProfile
+    useProfileStore.getState().recordMatch({
+      mode: isMp ? 'multiplayer' : 'cpu',
+      result: next.winner === next.mySide ? 'win' : 'loss',
+      opponentName: next.players[oppSide].name,
+      opponentAvatarId: isMp ? (opp?.avatarId ?? null) : null,
+      opponentRating: isMp ? (opp?.rating ?? null) : null,
+      turns: next.turnNumber,
+    })
+  }
+
   function applyLocal(action: GameAction) {
     const state = get().gameState
     if (!state) return
     const next = applyAction(state, action)
     set({ gameState: next })
+    recordResultIfGameEnded(state, next)
     const link = get().link
     if (state.mode === 'host' && link) {
       link.send({ type: 'state', state: { ...next, mode: 'guest', mySide: 'p2' } })
@@ -93,19 +113,26 @@ export const useGameStore = create<GameStore>((set, get) => {
           set({ mpStatus: 'error', mpError: 'Kein aktives Deck ausgewählt.' })
           return
         }
+        const myProfile = useProfileStore.getState()
         const state = createInitialState('host', 'p1', p1Cards, msg.deckCards, {
           p2IsAI: false,
-          p1Name: 'Host',
-          p2Name: msg.name || 'Gast',
+          p1Name: myProfile.name,
+          p2Name: msg.profile.name || 'Gast',
         })
-        set({ gameState: state, screen: 'setup', mpStatus: 'connected' })
+        set({ gameState: state, screen: 'setup', mpStatus: 'connected', opponentProfile: msg.profile })
+        link.send({ type: 'welcome', profile: myProfile.asPeerProfile() })
         link.send({ type: 'state', state: { ...state, mode: 'guest', mySide: 'p2' } })
       }
       if (role === 'host' && msg.type === 'action') {
         applyLocal(msg.action)
       }
+      if (role === 'guest' && msg.type === 'welcome') {
+        set({ opponentProfile: msg.profile })
+      }
       if (role === 'guest' && msg.type === 'state') {
+        const prev = get().gameState
         set({ gameState: msg.state })
+        recordResultIfGameEnded(prev, msg.state)
       }
     }
     link.onPeerDisconnected = () => {
@@ -120,6 +147,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     sessionCode: null,
     mpStatus: 'idle',
     mpError: null,
+    opponentProfile: null,
     starting: false,
     startError: null,
 
@@ -132,7 +160,10 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ starting: true, startError: null })
       try {
         const p2Cards = await buildRandomOpponentDeck()
-        const state = createInitialState('local', 'p1', p1Cards, p2Cards, { p2IsAI: true })
+        const state = createInitialState('local', 'p1', p1Cards, p2Cards, {
+          p2IsAI: true,
+          p1Name: useProfileStore.getState().name,
+        })
         set({ gameState: state, screen: 'setup', starting: false })
         scheduleAiIfNeeded()
       } catch {
@@ -170,7 +201,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       attachLinkHandlers(link, 'guest')
       try {
         await link.joinSession(code)
-        link.send({ type: 'hello', name: 'Gast', deckCards: p2Cards })
+        link.send({ type: 'hello', profile: useProfileStore.getState().asPeerProfile(), deckCards: p2Cards })
         set({ mpStatus: 'connected' })
       } catch {
         set({ mpStatus: 'error', mpError: 'Session nicht gefunden oder Verbindung fehlgeschlagen.' })
@@ -196,6 +227,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         sessionCode: null,
         mpStatus: 'idle',
         mpError: null,
+        opponentProfile: null,
         startError: null,
       })
     },
