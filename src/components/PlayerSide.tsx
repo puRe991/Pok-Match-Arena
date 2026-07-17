@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import type { PlayerState } from '../game/types'
 import { BoardPokemon } from './BoardPokemon'
 import { CardBack } from './CardView'
+import { ProfileTag } from './ProfileTag'
 
 interface PileBadgeProps {
   label: string
@@ -29,6 +30,7 @@ interface PlayerSideProps {
   flashInstanceId?: string | null
   shakeInstanceId?: string | null
   showHandCount?: boolean
+  profileBadge?: { avatarId: string; rating: number } | null
 }
 
 export function PlayerSide({
@@ -41,6 +43,7 @@ export function PlayerSide({
   flashInstanceId,
   shakeInstanceId,
   showHandCount,
+  profileBadge,
 }: PlayerSideProps) {
   const activeBlock = player.active ? (
     <BoardPokemon
@@ -86,6 +89,7 @@ export function PlayerSide({
     <div className={clsx('flex w-full flex-col items-center gap-2 rounded-2xl p-2 sm:p-3', isTurn && 'bg-white/5')}>
       <div className="flex w-full items-center justify-between px-1">
         <div className="flex items-center gap-2">
+          {profileBadge && <ProfileTag avatarId={profileBadge.avatarId} rating={profileBadge.rating} />}
           <span className={clsx('font-bold', isTurn && 'text-yellow-300')}>{player.name}</span>
           {isTurn && (
             <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-semibold text-yellow-300">
