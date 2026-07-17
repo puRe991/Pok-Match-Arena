@@ -1,14 +1,28 @@
+import { avatarById, rankForRating } from '../profile/profile'
 import { useGameStore } from '../store/gameStore'
+import { useProfileStore } from '../store/profileStore'
 
 export function LobbyScreen() {
   const sessionCode = useGameStore((s) => s.sessionCode)
   const mpStatus = useGameStore((s) => s.mpStatus)
   const mpError = useGameStore((s) => s.mpError)
   const backToMenu = useGameStore((s) => s.backToMenu)
+  const name = useProfileStore((s) => s.name)
+  const avatarId = useProfileStore((s) => s.avatarId)
+  const rating = useProfileStore((s) => s.stats.rating)
+  const rank = rankForRating(rating)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
       <h1 className="text-2xl font-bold text-white">Multiplayer-Lobby</h1>
+
+      <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-4 py-1.5 text-sm">
+        <span>{avatarById(avatarId).emoji}</span>
+        <span className="font-bold text-white">{name}</span>
+        <span className={`font-bold ${rank.colorClass}`}>
+          {rank.icon} {rating}
+        </span>
+      </div>
 
       {mpStatus === 'hosting' && !sessionCode && <p className="text-slate-400">Erstelle Session…</p>}
 
