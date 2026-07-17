@@ -7,7 +7,7 @@ Status-Effekten.
 
 ## Tech-Stack
 
-- **Frontend:** React 19 + TypeScript + Tailwind CSS v4 (via `@tailwindcss/vite`) + Framer Motion
+- **Frontend:** React 19 + TypeScript + Tailwind CSS v3 (via PostCSS) + Framer Motion
 - **State Management:** Zustand (+ `zustand/middleware persist` für die Sammlung)
 - **Kartendaten:** Pokemon TCG API (`api.pokemontcg.io`), mit einem eingebauten
   Offline-Fallback-Kartensatz falls die API nicht erreichbar ist
@@ -31,20 +31,20 @@ npm test        # Vitest (einmaliger Lauf)
 npm run test:watch  # Vitest im Watch-Modus
 ```
 
-### Windows: „Cannot find module '...lightningcss.win32-ia32-msvc.node'"
+### Plattform-Kompatibilität (inkl. 32-Bit Windows)
 
-Dieser Fehler bedeutet, dass eine **32-Bit-Version von Node.js** installiert
-ist (`ia32`). Tailwind CSS v4 nutzt intern
-[lightningcss](https://github.com/parcel-bundler/lightningcss), das für
-Windows nur noch 64-Bit-Binaries (`x64`/`arm64`) veröffentlicht — ein 32-Bit-
-Build existiert nicht mehr. `npm install` meldet das inzwischen sofort und
-verständlich (`EBADPLATFORM`, dank der `os`/`cpu`-Felder in `package.json`),
-statt erst beim Start von `vite` mit einem kryptischen Modul-Fehler
-abzubrechen.
+Das Projekt läuft bewusst auf **Tailwind CSS v3** statt v4: Tailwind v4
+(`@tailwindcss/vite`, `@tailwindcss/oxide`, `lightningcss`) ist Rust-basiert
+und veröffentlicht für Windows nur noch 64-Bit-Binaries (`x64`/`arm64`) — auf
+32-Bit-Node.js (`ia32`) schlägt `npm run dev` dadurch mit
+`Cannot find module '...lightningcss.win32-ia32-msvc.node'` fehl, ein
+32-Bit-Build existiert schlicht nicht mehr.
 
-Abhilfe: die 64-Bit-Version von Node.js installieren (nicht "x86") —
-https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
-`arm64` sein), `node_modules` löschen und `npm install` erneut ausführen.
+Tailwind v3 ist reines JavaScript (läuft über PostCSS, kein natives
+Binary), daher gibt es dieses Problem hier nicht. Die übrigen nativen
+Build-Abhängigkeiten (`esbuild`, `@rollup/rollup-*`, `oxlint`)
+veröffentlichen alle einen `win32-ia32-msvc`-Build, sodass `npm install` /
+`npm run dev` / `npm run build` auch auf 32-Bit-Windows funktionieren.
 
 ## Features
 

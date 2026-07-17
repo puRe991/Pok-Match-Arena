@@ -6,8 +6,6 @@
   "engines": {
     "node": ">=20"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -25,7 +23,6 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -33,9 +30,11 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
+    "autoprefixer": "^10.5.4",
     "jsdom": "^29.1.1",
     "oxlint": "^1.71.0",
-    "tailwindcss": "^4.3.3",
+    "postcss": "^8.5.19",
+    "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
     "vite": "^7.3.6",
     "vitest": "^4.1.10"
