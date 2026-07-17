@@ -8,6 +8,10 @@ const TYPE_COLORS: Record<string, string> = {
   Lightning: 'bg-yellow-500',
   Fighting: 'bg-amber-800',
   Psychic: 'bg-purple-600',
+  Darkness: 'bg-slate-800',
+  Metal: 'bg-zinc-400',
+  Fairy: 'bg-pink-400',
+  Dragon: 'bg-indigo-600',
   Colorless: 'bg-slate-400',
 }
 
@@ -64,6 +68,11 @@ export function CardView({ card, size = 'md', selected, dimmed, onClick, classNa
           ;(e.currentTarget as HTMLImageElement).style.display = 'none'
         }}
       />
+      {card.kind === 'trainer' && (
+        <span className="absolute left-1 top-1 rounded bg-emerald-600 px-1 text-[8px] font-bold text-white">
+          {card.trainerType === 'supporter' ? 'SUPPORTER' : 'ITEM'}
+        </span>
+      )}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 truncate bg-black/60 px-1 py-0.5 text-[9px] font-semibold text-white">
         {card.name}
       </div>

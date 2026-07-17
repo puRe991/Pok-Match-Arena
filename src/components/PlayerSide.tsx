@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { BENCH_SIZE } from '../game/constants'
 import type { PlayerState } from '../game/types'
 import { BoardPokemon } from './BoardPokemon'
 import { CardBack } from './CardView'
@@ -73,7 +74,7 @@ export function PlayerSide({
           shake={shakeInstanceId === mon.instanceId}
         />
       ))}
-      {Array.from({ length: Math.max(0, 5 - player.bench.length) }).map((_, i) => (
+      {Array.from({ length: Math.max(0, BENCH_SIZE - player.bench.length) }).map((_, i) => (
         <div
           key={`empty-${i}`}
           className="h-16 w-16 rounded-lg border border-dashed border-slate-700 sm:h-20 sm:w-20"
@@ -100,6 +101,7 @@ export function PlayerSide({
               <span className="text-[10px] text-slate-400">Hand ({player.hand.length})</span>
             </div>
           )}
+          <PileBadge label="Preise" count={player.prizes.length} />
           <PileBadge label="Deck" count={player.deck.length} />
           <PileBadge label="Ablage" count={player.discard.length} />
         </div>

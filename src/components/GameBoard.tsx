@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useGameStore, isMyTurn } from '../store/gameStore'
+import { BENCH_SIZE } from '../game/constants'
 import type { CardDef, Side } from '../game/types'
 import { PlayerSide } from './PlayerSide'
 import { HandView } from './HandView'
@@ -51,12 +52,13 @@ export function GameBoard() {
   }
 
   function evoTargets(card: CardDef): Set<string> {
-    if (card.kind !== 'pokemon' || card.stage !== 'stage1') return new Set()
+    if (card.kind !== 'pokemon' || card.stage === 'basic' || turnNumber <= 1) return new Set()
+    const requiredStage = card.stage === 'stage1' ? 'basic' : 'stage1'
     const ids: string[] = []
     const all = [me.active, ...me.bench].filter((m): m is NonNullable<typeof m> => !!m)
     for (const mon of all) {
       const top = mon.stages[mon.stages.length - 1]
-      if (top.name === card.evolvesFrom && mon.enteredPlayTurn !== turnNumber) {
+      if (top.name === card.evolvesFrom && top.stage === requiredStage && mon.enteredPlayTurn !== turnNumber) {
         ids.push(mon.instanceId)
       }
     }
@@ -68,8 +70,15 @@ export function GameBoard() {
     return new Set(all.map((m) => m.instanceId))
   }
 
+  function trainerTargets(card: CardDef): Set<string> {
+    if (card.kind !== 'trainer' || !card.effects.some((e) => e.kind === 'switchSelfActive')) return new Set()
+    if (!me.active) return new Set()
+    return new Set(me.bench.map((m) => m.instanceId))
+  }
+
   function retreatTargets(): Set<string> {
     if (!myTurn || !me.active || me.hasRetreatedThisTurn) return new Set()
+    if (me.active.status.special === 'asleep' || me.active.status.special === 'paralyzed') return new Set()
     const top = me.active.stages[me.active.stages.length - 1]
     if (me.active.attachedEnergy.length < top.retreatCost) return new Set()
     return new Set(me.bench.map((m) => m.instanceId))
@@ -78,7 +87,9 @@ export function GameBoard() {
   const selectableIds = pendingCard
     ? pendingCard.kind === 'energy'
       ? energyTargets()
-      : evoTargets(pendingCard)
+      : pendingCard.kind === 'trainer'
+        ? trainerTargets(pendingCard)
+        : evoTargets(pendingCard)
     : retreatTargets()
 
   function handleHandCardClick(card: CardDef) {
@@ -91,6 +102,10 @@ export function GameBoard() {
       dispatch({ type: 'PLAY_BENCH', side: mySide, handUid: card.uid })
       return
     }
+    if (card.kind === 'trainer' && trainerTargets(card).size === 0) {
+      dispatch({ type: 'PLAY_TRAINER', side: mySide, handUid: card.uid })
+      return
+    }
     setPendingCard(card)
   }
 
@@ -99,6 +114,8 @@ export function GameBoard() {
     if (pendingCard) {
       if (pendingCard.kind === 'energy') {
         dispatch({ type: 'ATTACH_ENERGY', side: mySide, handUid: pendingCard.uid, targetInstanceId: instanceId })
+      } else if (pendingCard.kind === 'trainer') {
+        dispatch({ type: 'PLAY_TRAINER', side: mySide, handUid: pendingCard.uid, targetInstanceId: instanceId })
       } else {
         dispatch({ type: 'EVOLVE', side: mySide, handUid: pendingCard.uid, targetInstanceId: instanceId })
       }
@@ -110,9 +127,14 @@ export function GameBoard() {
 
   function playableHandUid(card: CardDef): boolean {
     if (!myTurn || iNeedPromote) return false
-    if (card.kind === 'pokemon' && card.stage === 'basic') return me.bench.length < 5
-    if (card.kind === 'pokemon' && card.stage === 'stage1') return evoTargets(card).size > 0
+    if (card.kind === 'pokemon' && card.stage === 'basic') return me.bench.length < BENCH_SIZE
+    if (card.kind === 'pokemon' && card.stage !== 'basic') return evoTargets(card).size > 0
     if (card.kind === 'energy') return !me.hasAttachedEnergyThisTurn
+    if (card.kind === 'trainer') {
+      if (card.trainerType === 'supporter' && me.supporterPlayedThisTurn) return false
+      if (card.effects.some((e) => e.kind === 'switchSelfActive')) return trainerTargets(card).size > 0
+      return true
+    }
     return false
   }
 
@@ -200,7 +222,9 @@ export function GameBoard() {
             <span>
               {pendingCard.kind === 'energy'
                 ? 'Wähle ein Pokémon für die Energie.'
-                : `Wähle ein ${pendingCard.evolvesFrom} zum Entwickeln.`}
+                : pendingCard.kind === 'trainer'
+                  ? 'Wähle dein neues aktives Pokémon von der Bank.'
+                  : `Wähle ein ${pendingCard.evolvesFrom} zum Entwickeln.`}
             </span>
             <button onClick={clearPending} className="text-slate-400 hover:text-white">
               Abbrechen

@@ -1,6 +1,16 @@
-import type { AttackDef, CardDef, ElementType, EnergyCardDef, PokemonCardDef } from '../game/types'
-import { ALL_POKEMON_NAMES, ENERGY_TYPES, ROSTER } from '../game/roster'
-import { FALLBACK_POKEMON, FALLBACK_ENERGY } from './fallbackCards'
+import type {
+  AttackDef,
+  CardDef,
+  ElementType,
+  EnergyCardDef,
+  PokemonCardDef,
+  Stage,
+  TrainerCardDef,
+  TrainerType,
+} from '../game/types'
+import { ENERGY_TYPES } from '../game/constants'
+import { isRecognizedTrainerText, parseAttackEffects, parseTrainerEffects } from '../game/effects'
+import { FALLBACK_POOL } from './fallbackCards'
 
 const API_BASE = 'https://api.pokemontcg.io/v2/cards'
 const KNOWN_TYPES: ElementType[] = [
@@ -10,6 +20,10 @@ const KNOWN_TYPES: ElementType[] = [
   'Lightning',
   'Fighting',
   'Psychic',
+  'Darkness',
+  'Metal',
+  'Fairy',
+  'Dragon',
   'Colorless',
 ]
 
@@ -31,6 +45,8 @@ interface RawCard {
   attacks?: RawAttack[]
   retreatCost?: string[]
   weaknesses?: { type: string; value: string }[]
+  resistances?: { type: string; value: string }[]
+  rules?: string[]
   images: { small: string; large: string }
 }
 
@@ -43,40 +59,73 @@ function parseDamage(raw: string | undefined): number {
   if (!raw) return 0
   const match = raw.match(/\d+/)
   if (!match) return 0
-  return Math.max(0, Math.min(90, parseInt(match[0], 10)))
+  return Math.max(0, Math.min(150, parseInt(match[0], 10)))
 }
 
 function normalizeAttacks(raw: RawAttack[] | undefined): AttackDef[] {
   if (!raw || raw.length === 0) return []
-  return raw.slice(0, 2).map((a) => ({
+  return raw.slice(0, 4).map((a) => ({
     name: a.name,
-    cost: (a.cost ?? ['Colorless']).slice(0, 4).map(toElementType),
+    cost: (a.cost ?? ['Colorless']).slice(0, 5).map(toElementType),
     damage: parseDamage(a.damage),
     text: a.text ?? '',
+    effects: parseAttackEffects(a.text),
   }))
 }
 
-function normalizePokemon(raw: RawCard, expectedType: ElementType): PokemonCardDef | null {
+function deriveStage(subtypes: string[] | undefined): Stage {
+  const s = subtypes ?? []
+  if (s.includes('Basic')) return 'basic'
+  if (s.some((x) => x.replace(/\s+/g, '').toLowerCase() === 'stage2')) return 'stage2'
+  return 'stage1'
+}
+
+function normalizePokemon(raw: RawCard): PokemonCardDef | null {
   const hp = raw.hp ? parseInt(raw.hp, 10) : NaN
   if (!hp || Number.isNaN(hp)) return null
   const attacks = normalizeAttacks(raw.attacks)
   if (attacks.length === 0) return null
-  const isBasic = (raw.subtypes ?? []).some((s) => s === 'Basic')
-  const stage = isBasic ? 'basic' : 'stage1'
+  const stage = deriveStage(raw.subtypes)
+  if (stage !== 'basic' && !raw.evolvesFrom) return null
   const retreatCost = raw.retreatCost?.length ?? 1
   const weaknessRaw = raw.weaknesses?.[0]?.type
+  const resistanceRaw = raw.resistances?.[0]?.type
   return {
     kind: 'pokemon',
     id: raw.id,
     uid: '',
     name: raw.name,
-    pokemonType: expectedType,
+    pokemonType: toElementType(raw.types?.[0]),
     stage,
     evolvesFrom: raw.evolvesFrom,
-    hp: Math.min(120, hp),
+    hp: Math.min(340, hp),
     attacks,
-    retreatCost: Math.min(3, Math.max(1, retreatCost)),
+    retreatCost: Math.min(4, Math.max(0, retreatCost)),
     weakness: weaknessRaw ? toElementType(weaknessRaw) : undefined,
+    resistance: resistanceRaw ? toElementType(resistanceRaw) : undefined,
+    imageSmall: raw.images.small,
+    imageLarge: raw.images.large,
+  }
+}
+
+function normalizeTrainer(raw: RawCard): TrainerCardDef | null {
+  const subtypes = raw.subtypes ?? []
+  const trainerType: TrainerType | null = subtypes.includes('Supporter')
+    ? 'supporter'
+    : subtypes.includes('Item')
+      ? 'item'
+      : null
+  if (!trainerType) return null
+  const text = (raw.rules ?? []).join(' ')
+  if (!isRecognizedTrainerText(text)) return null
+  return {
+    kind: 'trainer',
+    id: raw.id,
+    uid: '',
+    name: raw.name,
+    trainerType,
+    text,
+    effects: parseTrainerEffects(text),
     imageSmall: raw.images.small,
     imageLarge: raw.images.large,
   }
@@ -85,7 +134,7 @@ function normalizePokemon(raw: RawCard, expectedType: ElementType): PokemonCardD
 async function fetchJson(url: string): Promise<{ data: RawCard[] } | null> {
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 6000)
+    const timeout = setTimeout(() => controller.abort(), 8000)
     const res = await fetch(url, { signal: controller.signal })
     clearTimeout(timeout)
     if (!res.ok) return null
@@ -95,49 +144,66 @@ async function fetchJson(url: string): Promise<{ data: RawCard[] } | null> {
   }
 }
 
-async function fetchPokemonPool(): Promise<Record<string, PokemonCardDef>> {
-  const nameQuery = ALL_POKEMON_NAMES.map((n) => `name:"${n}"`).join(' OR ')
-  const q = encodeURIComponent(`supertype:Pokémon (${nameQuery})`)
-  const select = encodeURIComponent(
-    'id,name,supertype,subtypes,hp,types,evolvesFrom,attacks,retreatCost,weaknesses,images',
-  )
-  const url = `${API_BASE}?q=${q}&pageSize=250&select=${select}`
-  const json = await fetchJson(url)
-  const pool: Record<string, PokemonCardDef> = {}
-
-  if (json) {
-    for (const line of ROSTER) {
-      const candidates = json.data.filter(
-        (c) => c.name === line.basic && (c.subtypes ?? []).includes('Basic'),
-      )
-      const best = candidates.find((c) => (c.attacks?.length ?? 0) > 0) ?? candidates[0]
-      const normalized = best ? normalizePokemon(best, line.type) : null
-      pool[line.basic] = normalized ?? FALLBACK_POKEMON[line.basic]
-
-      if (line.stage1) {
-        const evoCandidates = json.data.filter(
-          (c) => c.name === line.stage1 && c.evolvesFrom === line.basic,
-        )
-        const bestEvo = evoCandidates.find((c) => (c.attacks?.length ?? 0) > 0) ?? evoCandidates[0]
-        const normalizedEvo = bestEvo ? normalizePokemon(bestEvo, line.type) : null
-        pool[line.stage1] = normalizedEvo ?? FALLBACK_POKEMON[line.stage1]
-      }
-    }
-  } else {
-    for (const name of ALL_POKEMON_NAMES) {
-      pool[name] = FALLBACK_POKEMON[name]
-    }
-  }
-
-  return pool
+export interface EvolutionLine {
+  basic: PokemonCardDef
+  stage1?: PokemonCardDef
+  stage2?: PokemonCardDef
 }
 
-async function fetchEnergyPool(): Promise<Record<ElementType, EnergyCardDef>> {
+function buildLines(cards: RawCard[]): EvolutionLine[] {
+  const byName = new Map<string, PokemonCardDef>()
+  for (const raw of cards) {
+    if (byName.has(raw.name)) continue
+    const normalized = normalizePokemon(raw)
+    if (normalized) byName.set(raw.name, normalized)
+  }
+
+  const lines: EvolutionLine[] = []
+  for (const basic of byName.values()) {
+    if (basic.stage !== 'basic') continue
+    const stage1 = [...byName.values()].find((c) => c.stage === 'stage1' && c.evolvesFrom === basic.name)
+    const stage2 = stage1
+      ? [...byName.values()].find((c) => c.stage === 'stage2' && c.evolvesFrom === stage1.name)
+      : undefined
+    lines.push({ basic, stage1, stage2 })
+  }
+  return lines
+}
+
+async function fetchPokemonLines(): Promise<EvolutionLine[]> {
+  const select = encodeURIComponent(
+    'id,name,supertype,subtypes,hp,types,evolvesFrom,attacks,retreatCost,weaknesses,resistances,images',
+  )
+  const q = encodeURIComponent('supertype:pokemon')
+  const url = `${API_BASE}?q=${q}&pageSize=250&select=${select}`
+  const json = await fetchJson(url)
+  if (!json || json.data.length === 0) return FALLBACK_POOL.lines
+  const lines = buildLines(json.data)
+  return lines.length > 0 ? lines : FALLBACK_POOL.lines
+}
+
+async function fetchTrainers(): Promise<TrainerCardDef[]> {
+  const select = encodeURIComponent('id,name,supertype,subtypes,rules,images')
+  const q = encodeURIComponent('supertype:trainer (subtypes:item OR subtypes:supporter)')
+  const url = `${API_BASE}?q=${q}&pageSize=250&select=${select}`
+  const json = await fetchJson(url)
+  if (!json) return FALLBACK_POOL.trainers
+  const byName = new Map<string, TrainerCardDef>()
+  for (const raw of json.data) {
+    if (byName.has(raw.name)) continue
+    const normalized = normalizeTrainer(raw)
+    if (normalized) byName.set(raw.name, normalized)
+  }
+  const trainers = [...byName.values()]
+  return trainers.length > 0 ? trainers : FALLBACK_POOL.trainers
+}
+
+async function fetchEnergy(): Promise<Partial<Record<ElementType, EnergyCardDef>>> {
   const nameQuery = ENERGY_TYPES.map((t) => `name:"${t} Energy"`).join(' OR ')
-  const q = encodeURIComponent(`supertype:Energy subtypes:Basic (${nameQuery})`)
+  const q = encodeURIComponent(`supertype:energy subtypes:basic (${nameQuery})`)
   const url = `${API_BASE}?q=${q}&pageSize=100&select=id,name,supertype,subtypes,images`
   const json = await fetchJson(url)
-  const pool = {} as Record<ElementType, EnergyCardDef>
+  const pool: Partial<Record<ElementType, EnergyCardDef>> = {}
 
   for (const type of ENERGY_TYPES) {
     const found = json?.data.find((c) => c.name === `${type} Energy`)
@@ -151,22 +217,23 @@ async function fetchEnergyPool(): Promise<Record<ElementType, EnergyCardDef>> {
           imageSmall: found.images.small,
           imageLarge: found.images.large,
         }
-      : FALLBACK_ENERGY[type]
+      : FALLBACK_POOL.energy[type]
   }
   return pool
 }
 
 export interface CardPool {
-  pokemon: Record<string, PokemonCardDef>
-  energy: Record<ElementType, EnergyCardDef>
+  lines: EvolutionLine[]
+  trainers: TrainerCardDef[]
+  energy: Partial<Record<ElementType, EnergyCardDef>>
 }
 
 let cachedPool: Promise<CardPool> | null = null
 
 export function loadCardPool(): Promise<CardPool> {
   if (!cachedPool) {
-    cachedPool = Promise.all([fetchPokemonPool(), fetchEnergyPool()]).then(
-      ([pokemon, energy]) => ({ pokemon, energy }),
+    cachedPool = Promise.all([fetchPokemonLines(), fetchTrainers(), fetchEnergy()]).then(
+      ([lines, trainers, energy]) => ({ lines, trainers, energy }),
     )
   }
   return cachedPool

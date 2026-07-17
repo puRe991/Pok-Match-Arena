@@ -1,3 +1,5 @@
+import type { EffectSpec } from './effects'
+
 export type ElementType =
   | 'Fire'
   | 'Water'
@@ -5,15 +7,20 @@ export type ElementType =
   | 'Lightning'
   | 'Fighting'
   | 'Psychic'
+  | 'Darkness'
+  | 'Metal'
+  | 'Fairy'
+  | 'Dragon'
   | 'Colorless'
 
-export type Stage = 'basic' | 'stage1'
+export type Stage = 'basic' | 'stage1' | 'stage2'
 
 export interface AttackDef {
   name: string
   cost: ElementType[]
   damage: number
   text: string
+  effects: EffectSpec[]
 }
 
 export interface PokemonCardDef {
@@ -28,6 +35,7 @@ export interface PokemonCardDef {
   attacks: AttackDef[]
   retreatCost: number
   weakness?: ElementType
+  resistance?: ElementType
   imageSmall: string
   imageLarge: string
 }
@@ -42,7 +50,33 @@ export interface EnergyCardDef {
   imageLarge: string
 }
 
-export type CardDef = PokemonCardDef | EnergyCardDef
+export type TrainerType = 'item' | 'supporter'
+
+export interface TrainerCardDef {
+  kind: 'trainer'
+  id: string
+  uid: string
+  name: string
+  trainerType: TrainerType
+  text: string
+  effects: EffectSpec[]
+  imageSmall: string
+  imageLarge: string
+}
+
+export type CardDef = PokemonCardDef | EnergyCardDef | TrainerCardDef
+
+export type SpecialCondition = 'asleep' | 'paralyzed' | 'confused'
+
+export interface StatusConditions {
+  poisoned: boolean
+  burned: boolean
+  special: SpecialCondition | null
+}
+
+export function emptyStatus(): StatusConditions {
+  return { poisoned: false, burned: false, special: null }
+}
 
 export interface InPlayPokemon {
   instanceId: string
@@ -51,6 +85,7 @@ export interface InPlayPokemon {
   attachedEnergy: EnergyCardDef[]
   enteredPlayTurn: number
   evolvedOnTurn: number | null
+  status: StatusConditions
 }
 
 export type Side = 'p1' | 'p2'
@@ -61,12 +96,15 @@ export interface PlayerState {
   isAI: boolean
   deck: CardDef[]
   hand: CardDef[]
+  prizes: CardDef[]
   active: InPlayPokemon | null
   bench: InPlayPokemon[]
   discard: CardDef[]
   hasAttachedEnergyThisTurn: boolean
   hasRetreatedThisTurn: boolean
+  supporterPlayedThisTurn: boolean
   attackedThisTurn: boolean
+  mulligans: number
 }
 
 export type Phase = 'setup' | 'main' | 'gameover'
@@ -105,6 +143,7 @@ export type GameAction =
   | { type: 'PLAY_BENCH'; side: Side; handUid: string }
   | { type: 'EVOLVE'; side: Side; handUid: string; targetInstanceId: string }
   | { type: 'ATTACH_ENERGY'; side: Side; handUid: string; targetInstanceId: string }
+  | { type: 'PLAY_TRAINER'; side: Side; handUid: string; targetInstanceId?: string }
   | { type: 'RETREAT'; side: Side; benchInstanceId: string }
   | { type: 'ATTACK'; side: Side; attackIndex: number }
   | { type: 'PROMOTE'; side: Side; benchInstanceId: string }

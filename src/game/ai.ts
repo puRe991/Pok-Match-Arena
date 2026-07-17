@@ -1,5 +1,6 @@
+import { BENCH_SIZE } from './constants'
 import { attackIsUsable } from './engine'
-import type { GameAction, GameState, InPlayPokemon, Side } from './types'
+import type { GameAction, GameState, InPlayPokemon, Side, TrainerCardDef } from './types'
 
 function topStage(mon: InPlayPokemon) {
   return mon.stages[mon.stages.length - 1]
@@ -15,12 +16,51 @@ export function decideAiSetupAction(state: GameState, side: Side): GameAction | 
     return { type: 'SETUP_READY', side }
   }
 
-  if (player.bench.length < 5) {
+  if (player.bench.length < BENCH_SIZE) {
     const basic = player.hand.find((c) => c.kind === 'pokemon' && c.stage === 'basic')
     if (basic) return { type: 'SETUP_PLACE_BENCH', side, handUid: basic.uid }
   }
 
   return { type: 'SETUP_READY', side }
+}
+
+function canRetreatNow(mon: InPlayPokemon): boolean {
+  return mon.status.special !== 'asleep' && mon.status.special !== 'paralyzed'
+}
+
+function findEvolution(state: GameState, side: Side, mon: InPlayPokemon) {
+  const player = state.players[side]
+  if (mon.enteredPlayTurn === state.turnNumber) return null
+  const currentStage = topStage(mon).stage
+  const wantedStage = currentStage === 'basic' ? 'stage1' : currentStage === 'stage1' ? 'stage2' : null
+  if (!wantedStage) return null
+  return player.hand.find(
+    (c) => c.kind === 'pokemon' && c.stage === wantedStage && c.evolvesFrom === topStage(mon).name,
+  )
+}
+
+function decideTrainerPlay(state: GameState, side: Side): GameAction | null {
+  const player = state.players[side]
+  const trainers = player.hand.filter((c): c is TrainerCardDef => c.kind === 'trainer')
+
+  const healCard = trainers.find(
+    (c) => c.effects.some((e) => e.kind === 'heal') && player.active && player.active.damage > 0,
+  )
+  if (healCard) return { type: 'PLAY_TRAINER', side, handUid: healCard.uid }
+
+  const energyCard = trainers.find((c) => c.effects.some((e) => e.kind === 'searchDeckForEnergy'))
+  if (energyCard && player.active && !player.hand.some((c) => c.kind === 'energy')) {
+    return { type: 'PLAY_TRAINER', side, handUid: energyCard.uid }
+  }
+
+  if (!player.supporterPlayedThisTurn) {
+    const drawCard = trainers.find(
+      (c) => c.trainerType === 'supporter' && c.effects.some((e) => e.kind === 'drawCards' || e.kind === 'handRefresh'),
+    )
+    if (drawCard && player.hand.length <= 4) return { type: 'PLAY_TRAINER', side, handUid: drawCard.uid }
+  }
+
+  return null
 }
 
 export function decideNextAiAction(state: GameState, side: Side): GameAction | null {
@@ -35,19 +75,21 @@ export function decideNextAiAction(state: GameState, side: Side): GameAction | n
     return { type: 'PROMOTE', side, benchInstanceId: best.instanceId }
   }
 
-  if (player.bench.length < 5) {
+  if (player.bench.length < BENCH_SIZE) {
     const basic = player.hand.find((c) => c.kind === 'pokemon' && c.stage === 'basic')
     if (basic) return { type: 'PLAY_BENCH', side, handUid: basic.uid }
   }
 
-  const monsInPlay = [player.active, ...player.bench]
-  for (const mon of monsInPlay) {
-    if (mon.enteredPlayTurn === state.turnNumber) continue
-    const evo = player.hand.find(
-      (c) => c.kind === 'pokemon' && c.stage === 'stage1' && c.evolvesFrom === topStage(mon).name,
-    )
-    if (evo) return { type: 'EVOLVE', side, handUid: evo.uid, targetInstanceId: mon.instanceId }
+  if (state.turnNumber > 1) {
+    const monsInPlay = [player.active, ...player.bench]
+    for (const mon of monsInPlay) {
+      const evo = findEvolution(state, side, mon)
+      if (evo) return { type: 'EVOLVE', side, handUid: evo.uid, targetInstanceId: mon.instanceId }
+    }
   }
+
+  const trainerAction = decideTrainerPlay(state, side)
+  if (trainerAction) return trainerAction
 
   if (!player.hasAttachedEnergyThisTurn) {
     const energyCards = player.hand.filter((c) => c.kind === 'energy')
@@ -79,6 +121,7 @@ export function decideNextAiAction(state: GameState, side: Side): GameAction | n
   const retreatCost = topStage(player.active).retreatCost
   if (
     !player.hasRetreatedThisTurn &&
+    canRetreatNow(player.active) &&
     activeHp / activeMaxHp <= 0.35 &&
     player.active.attachedEnergy.length >= retreatCost &&
     player.bench.length > 0

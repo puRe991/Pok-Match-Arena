@@ -49,6 +49,21 @@ export function BoardPokemon({ mon, active, selectable, selected, onClick, flash
           </span>
         )}
       </div>
+      {(mon.status.special || mon.status.poisoned || mon.status.burned) && (
+        <div className="flex flex-wrap justify-center gap-0.5">
+          {mon.status.special && (
+            <span className="rounded bg-fuchsia-600 px-1 text-[8px] font-bold text-white">
+              {STATUS_LABEL[mon.status.special]}
+            </span>
+          )}
+          {mon.status.poisoned && (
+            <span className="rounded bg-purple-700 px-1 text-[8px] font-bold text-white">GIFT</span>
+          )}
+          {mon.status.burned && (
+            <span className="rounded bg-red-700 px-1 text-[8px] font-bold text-white">BRAND</span>
+          )}
+        </div>
+      )}
       <div className="flex w-full items-center gap-1">
         <TypeBadge type={top.pokemonType} />
         <span className="truncate text-[10px] text-slate-300">{top.name}</span>
@@ -75,6 +90,12 @@ export function BoardPokemon({ mon, active, selectable, selected, onClick, flash
   )
 }
 
+const STATUS_LABEL: Record<'asleep' | 'paralyzed' | 'confused', string> = {
+  asleep: 'SCHLAF',
+  paralyzed: 'PARA',
+  confused: 'VERWIRRT',
+}
+
 function energyColor(type: string): string {
   const map: Record<string, string> = {
     Fire: '#ea580c',
@@ -83,6 +104,10 @@ function energyColor(type: string): string {
     Lightning: '#eab308',
     Fighting: '#92400e',
     Psychic: '#9333ea',
+    Darkness: '#1e293b',
+    Metal: '#a1a1aa',
+    Fairy: '#f472b6',
+    Dragon: '#4f46e5',
     Colorless: '#94a3b8',
   }
   return map[type] ?? '#94a3b8'

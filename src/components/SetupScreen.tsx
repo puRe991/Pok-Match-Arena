@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/gameStore'
+import { BENCH_SIZE } from '../game/constants'
 import { BoardPokemon } from './BoardPokemon'
 import { CardView } from './CardView'
 
@@ -18,7 +19,7 @@ export function SetupScreen() {
     if (myReady) return
     if (!me.active) {
       dispatch({ type: 'SETUP_PLACE_ACTIVE', side: gameState!.mySide, handUid: uid })
-    } else if (me.bench.length < 5) {
+    } else if (me.bench.length < BENCH_SIZE) {
       dispatch({ type: 'SETUP_PLACE_BENCH', side: gameState!.mySide, handUid: uid })
     }
   }
@@ -40,7 +41,9 @@ export function SetupScreen() {
             Wähle unten eine Basis-Karte
           </div>
         )}
-        <span className="text-xs uppercase tracking-wide text-slate-400">Bank ({me.bench.length}/5)</span>
+        <span className="text-xs uppercase tracking-wide text-slate-400">
+          Bank ({me.bench.length}/{BENCH_SIZE})
+        </span>
         <div className="flex flex-wrap justify-center gap-2">
           {me.bench.map((mon) => (
             <BoardPokemon key={mon.instanceId} mon={mon} />
@@ -54,7 +57,7 @@ export function SetupScreen() {
         <div className="flex flex-wrap justify-center gap-2">
           {me.hand.map((card) => {
             const isBasic = card.kind === 'pokemon' && card.stage === 'basic'
-            const canPlace = isBasic && !myReady && (!me.active || me.bench.length < 5)
+            const canPlace = isBasic && !myReady && (!me.active || me.bench.length < BENCH_SIZE)
             return (
               <CardView
                 key={card.uid}
