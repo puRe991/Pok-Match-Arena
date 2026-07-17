@@ -1,0 +1,233 @@
+import { useEffect, useState } from 'react'
+import { useGameStore, isMyTurn } from '../store/gameStore'
+import type { CardDef, Side } from '../game/types'
+import { PlayerSide } from './PlayerSide'
+import { HandView } from './HandView'
+import { AttackPanel } from './AttackPanel'
+import { GameLog } from './GameLog'
+import { BoardPokemon } from './BoardPokemon'
+
+function other(side: Side): Side {
+  return side === 'p1' ? 'p2' : 'p1'
+}
+
+export function GameBoard() {
+  const gameState = useGameStore((s) => s.gameState)
+  const dispatch = useGameStore((s) => s.dispatch)
+  const backToMenu = useGameStore((s) => s.backToMenu)
+  const [pendingCard, setPendingCard] = useState<CardDef | null>(null)
+  const [shakeId, setShakeId] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!gameState?.lastEvent) return
+    const ev = gameState.lastEvent
+    if (ev.type === 'attack') {
+      const targetSide = other(ev.side)
+      const targetId = gameState.players[targetSide].active?.instanceId ?? null
+      setShakeId(targetId)
+      setToast(`${ev.damage} Schaden${ev.superEffective ? ' — Super effektiv!' : ''}`)
+      const t1 = setTimeout(() => setShakeId(null), 500)
+      const t2 = setTimeout(() => setToast(null), 1400)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
+    }
+  }, [gameState?.lastEvent, gameState?.players])
+
+  if (!gameState) return null
+
+  const mySide = gameState.mySide
+  const oppSide = other(mySide)
+  const me = gameState.players[mySide]
+  const opp = gameState.players[oppSide]
+  const myTurn = isMyTurn(gameState)
+  const iNeedPromote = me.active === null && gameState.activeSide === mySide && gameState.phase === 'main'
+  const turnNumber = gameState.turnNumber
+
+  function clearPending() {
+    setPendingCard(null)
+  }
+
+  function evoTargets(card: CardDef): Set<string> {
+    if (card.kind !== 'pokemon' || card.stage !== 'stage1') return new Set()
+    const ids: string[] = []
+    const all = [me.active, ...me.bench].filter((m): m is NonNullable<typeof m> => !!m)
+    for (const mon of all) {
+      const top = mon.stages[mon.stages.length - 1]
+      if (top.name === card.evolvesFrom && mon.enteredPlayTurn !== turnNumber) {
+        ids.push(mon.instanceId)
+      }
+    }
+    return new Set(ids)
+  }
+
+  function energyTargets(): Set<string> {
+    const all = [me.active, ...me.bench].filter((m): m is NonNullable<typeof m> => !!m)
+    return new Set(all.map((m) => m.instanceId))
+  }
+
+  function retreatTargets(): Set<string> {
+    if (!myTurn || !me.active || me.hasRetreatedThisTurn) return new Set()
+    const top = me.active.stages[me.active.stages.length - 1]
+    if (me.active.attachedEnergy.length < top.retreatCost) return new Set()
+    return new Set(me.bench.map((m) => m.instanceId))
+  }
+
+  const selectableIds = pendingCard
+    ? pendingCard.kind === 'energy'
+      ? energyTargets()
+      : evoTargets(pendingCard)
+    : retreatTargets()
+
+  function handleHandCardClick(card: CardDef) {
+    if (!myTurn || iNeedPromote) return
+    if (pendingCard?.uid === card.uid) {
+      clearPending()
+      return
+    }
+    if (card.kind === 'pokemon' && card.stage === 'basic') {
+      dispatch({ type: 'PLAY_BENCH', side: mySide, handUid: card.uid })
+      return
+    }
+    setPendingCard(card)
+  }
+
+  function handleBoardSelect(instanceId: string) {
+    if (!myTurn || iNeedPromote) return
+    if (pendingCard) {
+      if (pendingCard.kind === 'energy') {
+        dispatch({ type: 'ATTACH_ENERGY', side: mySide, handUid: pendingCard.uid, targetInstanceId: instanceId })
+      } else {
+        dispatch({ type: 'EVOLVE', side: mySide, handUid: pendingCard.uid, targetInstanceId: instanceId })
+      }
+      clearPending()
+      return
+    }
+    dispatch({ type: 'RETREAT', side: mySide, benchInstanceId: instanceId })
+  }
+
+  function playableHandUid(card: CardDef): boolean {
+    if (!myTurn || iNeedPromote) return false
+    if (card.kind === 'pokemon' && card.stage === 'basic') return me.bench.length < 5
+    if (card.kind === 'pokemon' && card.stage === 'stage1') return evoTargets(card).size > 0
+    if (card.kind === 'energy') return !me.hasAttachedEnergyThisTurn
+    return false
+  }
+
+  const playableUids = new Set(me.hand.filter(playableHandUid).map((c) => c.uid))
+
+  if (gameState.phase === 'gameover') {
+    const won = gameState.winner === mySide
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+        <h1 className={`text-4xl font-black ${won ? 'text-yellow-300' : 'text-slate-400'}`}>
+          {won ? 'Sieg!' : 'Niederlage'}
+        </h1>
+        <p className="max-w-md text-slate-300">{gameState.winnerReason}</p>
+        <button
+          type="button"
+          onClick={backToMenu}
+          className="rounded-full bg-sky-500 px-6 py-2 font-bold text-white hover:bg-sky-400"
+        >
+          Zurück zum Menü
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-2 p-2 sm:p-4">
+      <div className="flex items-center justify-between">
+        <button onClick={backToMenu} className="text-xs text-slate-400 hover:text-white">
+          ← Menü
+        </button>
+        <span className="text-xs text-slate-500">Zug {gameState.turnNumber}</span>
+      </div>
+
+      {toast && (
+        <div className="pointer-events-none fixed left-1/2 top-6 z-50 -translate-x-1/2 animate-float-up rounded-full bg-black/80 px-4 py-1.5 text-sm font-bold text-yellow-300 shadow-lg">
+          {toast}
+        </div>
+      )}
+
+      <PlayerSide
+        player={opp}
+        isTurn={gameState.activeSide === oppSide}
+        selectableIds={new Set()}
+        onSelectMon={() => {}}
+        shakeInstanceId={shakeId}
+      />
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_220px]">
+        <div className="order-2 sm:order-1">
+          <PlayerSide
+            player={me}
+            reversed
+            isTurn={gameState.activeSide === mySide}
+            selectableIds={selectableIds}
+            selectedId={null}
+            onSelectMon={handleBoardSelect}
+            shakeInstanceId={shakeId}
+            showHandCount={false}
+          />
+        </div>
+        <div className="order-1 flex flex-col gap-2 sm:order-2">
+          <GameLog entries={gameState.log} />
+          {me.active && (
+            <AttackPanel
+              mon={me.active}
+              turnNumber={gameState.turnNumber}
+              disabled={!myTurn || !!pendingCard || iNeedPromote}
+              onAttack={(idx) => dispatch({ type: 'ATTACK', side: mySide, attackIndex: idx })}
+            />
+          )}
+          <button
+            type="button"
+            disabled={!myTurn || iNeedPromote || !me.active}
+            onClick={() => dispatch({ type: 'END_TURN', side: mySide })}
+            className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-bold text-white hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Zug beenden
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-black/20 pb-1">
+        {pendingCard && (
+          <div className="flex items-center justify-between px-3 py-1 text-xs text-sky-300">
+            <span>
+              {pendingCard.kind === 'energy'
+                ? 'Wähle ein Pokémon für die Energie.'
+                : `Wähle ein ${pendingCard.evolvesFrom} zum Entwickeln.`}
+            </span>
+            <button onClick={clearPending} className="text-slate-400 hover:text-white">
+              Abbrechen
+            </button>
+          </div>
+        )}
+        <HandView cards={me.hand} playableUids={playableUids} onCardClick={handleHandCardClick} selectedUid={pendingCard?.uid} />
+      </div>
+
+      {iNeedPromote && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+          <div className="flex max-w-lg flex-col items-center gap-4 rounded-2xl bg-slate-900 p-6">
+            <h2 className="text-lg font-bold text-white">Dein Pokémon wurde kampfunfähig!</h2>
+            <p className="text-sm text-slate-400">Wähle ein neues aktives Pokémon von deiner Bank.</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {me.bench.map((mon) => (
+                <BoardPokemon
+                  key={mon.instanceId}
+                  mon={mon}
+                  selectable
+                  onClick={() => dispatch({ type: 'PROMOTE', side: mySide, benchInstanceId: mon.instanceId })}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
