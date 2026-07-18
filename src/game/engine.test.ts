@@ -49,6 +49,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
         hasAttachedEnergyThisTurn: false,
         hasRetreatedThisTurn: false,
         attackedThisTurn: false,
+        attackBonus: 0,
       },
       p2: {
         side: 'p2',
@@ -63,6 +64,7 @@ function baseState(overrides: Partial<GameState> = {}): GameState {
         hasAttachedEnergyThisTurn: false,
         hasRetreatedThisTurn: false,
         attackedThisTurn: false,
+        attackBonus: 0,
       },
     },
     activeSide: 'p1',

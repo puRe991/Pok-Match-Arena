@@ -81,6 +81,8 @@ export interface PlayerState {
   hasAttachedEnergyThisTurn: boolean
   hasRetreatedThisTurn: boolean
   attackedThisTurn: boolean
+  /** Zusätzlicher Schaden für die nächste Attacke in diesem Zug (z. B. PlusPower). */
+  attackBonus: number
 }
 
 export type Phase = 'setup' | 'main' | 'gameover'
@@ -111,6 +113,7 @@ export type GameEvent =
   | { type: 'knockout'; side: Side }
   | { type: 'draw'; side: Side }
   | { type: 'status'; side: Side; status: StatusEffect }
+  | { type: 'trainer'; side: Side; name: string }
   | { type: 'none' }
 
 export type GameAction =
@@ -120,6 +123,7 @@ export type GameAction =
   | { type: 'PLAY_BENCH'; side: Side; handUid: string }
   | { type: 'EVOLVE'; side: Side; handUid: string; targetInstanceId: string }
   | { type: 'ATTACH_ENERGY'; side: Side; handUid: string; targetInstanceId: string }
+  | { type: 'PLAY_TRAINER'; side: Side; handUid: string; targetInstanceId?: string }
   | { type: 'RETREAT'; side: Side; benchInstanceId: string }
   | { type: 'ATTACK'; side: Side; attackIndex: number }
   | { type: 'PROMOTE'; side: Side; benchInstanceId: string }

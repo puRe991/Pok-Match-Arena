@@ -1,4 +1,4 @@
-import type { AttackDef, ElementType, EnergyCardDef, PokemonCardDef, Stage } from '../game/types'
+import type { AttackDef, ElementType, EnergyCardDef, PokemonCardDef, Rarity, Stage, TrainerCardDef } from '../game/types'
 
 // Offline safety net used only if the live Pokemon TCG API can't be reached
 // (network unavailable, rate limited, etc). Stats are hand-picked so packs,
@@ -137,4 +137,34 @@ export const FALLBACK_ENERGY: EnergyCardDef[] = [
   energy('102', 'Water'),
 ]
 
-export const FALLBACK_POOL = [...FALLBACK_POKEMON, ...FALLBACK_ENERGY]
+function trainer(id: string, name: string, text: string, rarity: Rarity = 'Common'): TrainerCardDef {
+  return {
+    kind: 'trainer',
+    id: `offline-${id}`,
+    uid: '',
+    name,
+    setId: 'offline',
+    setName: 'Offline-Kartensatz',
+    number: id,
+    rarity,
+    text,
+    imageSmall: `https://images.pokemontcg.io/base1/${id}.png`,
+    imageLarge: `https://images.pokemontcg.io/base1/${id}_hires.png`,
+  }
+}
+
+export const FALLBACK_TRAINERS: TrainerCardDef[] = [
+  trainer('91', 'Bill', 'Draw 2 cards.'),
+  trainer('88', 'Professor Oak', 'Discard your hand, then draw 7 cards.', 'Uncommon'),
+  trainer('94', 'Potion', 'Remove 2 damage counters from 1 of your Pokémon.'),
+  trainer('90', 'Super Potion', 'Discard 1 Energy card, then remove 4 damage counters.', 'Uncommon'),
+  trainer('95', 'Switch', 'Switch your Active Pokémon with 1 of your Benched Pokémon.'),
+  trainer('93', 'Gust of Wind', 'Choose 1 of your opponent’s Benched Pokémon and switch it with the Active.', 'Uncommon'),
+  trainer('92', 'Energy Removal', 'Discard 1 Energy card attached to 1 of your opponent’s Pokémon.'),
+  trainer('84', 'PlusPower', 'Your attack does 10 more damage this turn.'),
+  trainer('83', 'Full Heal', 'Remove all Special Conditions from 1 of your Pokémon.'),
+  trainer('85', 'Pokémon Center', 'Remove all damage counters from your Pokémon, then discard their Energy.', 'Uncommon'),
+  trainer('81', 'Energy Retrieval', 'Return up to 2 basic Energy cards from your discard pile to your hand.', 'Uncommon'),
+]
+
+export const FALLBACK_POOL = [...FALLBACK_POKEMON, ...FALLBACK_ENERGY, ...FALLBACK_TRAINERS]

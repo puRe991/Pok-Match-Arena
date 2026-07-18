@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { decideAiSetupAction, decideNextAiAction } from './ai'
-import { createInitialState } from './engine'
+import { applyAction, createInitialState } from './engine'
 import { FALLBACK_POOL } from '../api/fallbackCards'
 import { cloneWithUid } from './deckBuilder'
 import type { CardDef, GameState, PokemonCardDef } from './types'
@@ -9,6 +9,8 @@ const charmander = FALLBACK_POOL.find((c) => c.id === 'offline-46')! as PokemonC
 const charmeleon = FALLBACK_POOL.find((c) => c.id === 'offline-24')! as PokemonCardDef
 const squirtle = FALLBACK_POOL.find((c) => c.id === 'offline-63')! as PokemonCardDef
 const fireEnergy = FALLBACK_POOL.find((c) => c.id === 'offline-98')!
+const bill = FALLBACK_POOL.find((c) => c.kind === 'trainer' && c.name === 'Bill')!
+const potion = FALLBACK_POOL.find((c) => c.kind === 'trainer' && c.name === 'Potion')!
 
 function deckOf(cards: CardDef[], size = 20): CardDef[] {
   const out = cards.map((c) => cloneWithUid(c))
@@ -112,6 +114,61 @@ describe('decideNextAiAction', () => {
     state.players.p1.active = { instanceId: 'opp', stages: [charmander], damage: 0, attachedEnergy: [], enteredPlayTurn: 0, evolvedOnTurn: null, statuses: [] }
     const action = decideNextAiAction(state, 'p2')
     expect(action).toEqual({ type: 'ATTACK', side: 'p2', attackIndex: 0 })
+  })
+
+  it('plays a beneficial trainer (Bill) and the engine accepts the action', () => {
+    const state = freshState()
+    state.phase = 'main'
+    state.activeSide = 'p2'
+    state.turnNumber = 1
+    state.players.p2.active = { instanceId: 'i1', stages: [squirtle], damage: 0, attachedEnergy: [], enteredPlayTurn: 0, evolvedOnTurn: null, statuses: [] }
+    state.players.p2.bench = Array(5).fill(null).map((_, i) => ({
+      instanceId: `b${i}`, stages: [squirtle], damage: 0, attachedEnergy: [], enteredPlayTurn: 0, evolvedOnTurn: null, statuses: [],
+    }))
+    state.players.p2.hand = [cloneWithUid(bill)]
+    const action = decideNextAiAction(state, 'p2')
+    expect(action?.type).toBe('PLAY_TRAINER')
+    // The engine must actually apply it (otherwise the AI loop would stall).
+    const next = applyAction(state, action!)
+    expect(next.players.p2.hand.some((c) => c.name === 'Bill')).toBe(false)
+    expect(next.players.p2.discard.some((c) => c.name === 'Bill')).toBe(true)
+  })
+
+  it('heals a damaged active with Potion', () => {
+    const state = freshState()
+    state.phase = 'main'
+    state.activeSide = 'p2'
+    state.turnNumber = 1
+    state.players.p2.active = { instanceId: 'i1', stages: [squirtle], damage: 30, attachedEnergy: [], enteredPlayTurn: 0, evolvedOnTurn: null, statuses: [] }
+    state.players.p2.bench = Array(5).fill(null).map((_, i) => ({
+      instanceId: `b${i}`, stages: [squirtle], damage: 0, attachedEnergy: [], enteredPlayTurn: 0, evolvedOnTurn: null, statuses: [],
+    }))
+    state.players.p2.hand = [cloneWithUid(potion)]
+    const action = decideNextAiAction(state, 'p2')
+    expect(action).toMatchObject({ type: 'PLAY_TRAINER', side: 'p2', targetInstanceId: 'i1' })
+  })
+
+  it('never returns a no-op: an AI turn full of trainers terminates', () => {
+    const state = freshState()
+    state.phase = 'main'
+    state.activeSide = 'p2'
+    state.turnNumber = 1
+    state.players.p2.active = { instanceId: 'i1', stages: [squirtle], damage: 30, attachedEnergy: [], enteredPlayTurn: 0, evolvedOnTurn: null, statuses: [] }
+    state.players.p2.hand = [cloneWithUid(bill), cloneWithUid(potion), cloneWithUid(bill)]
+    state.players.p1.active = { instanceId: 'opp', stages: [charmander], damage: 0, attachedEnergy: [], enteredPlayTurn: 0, evolvedOnTurn: null, statuses: [] }
+
+    let current = state
+    let steps = 0
+    let action = decideNextAiAction(current, 'p2')
+    // Drive the AI until it ends its turn; a stalled (rejected) action would
+    // leave the state unchanged and spin forever, so we bound the loop.
+    while (action && action.type !== 'END_TURN' && steps < 50) {
+      current = applyAction(current, action)
+      action = decideNextAiAction(current, 'p2')
+      steps++
+    }
+    expect(steps).toBeLessThan(50)
+    expect(action?.type).toBe('END_TURN')
   })
 
   it('ends the turn when there is nothing productive left to do', () => {

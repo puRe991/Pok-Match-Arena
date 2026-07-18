@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { rankForRating } from '../profile/profile'
 import { useGameStore, isMyTurn } from '../store/gameStore'
 import { useProfileStore } from '../store/profileStore'
+import { getTrainerEffect, trainerIsPlayable, trainerValidTargets } from '../game/trainers'
 import type { CardDef, Side } from '../game/types'
 import { PlayerSide } from './PlayerSide'
 import { HandView } from './HandView'
@@ -57,9 +58,15 @@ export function GameBoard() {
       const t = setTimeout(() => setToast(null), 1400)
       return () => clearTimeout(t)
     }
+    if (ev.type === 'trainer') {
+      setToast(`🃏 ${ev.name}`)
+      const t = setTimeout(() => setToast(null), 1400)
+      return () => clearTimeout(t)
+    }
   }, [gameState?.lastEvent, gameState?.players])
 
   if (!gameState) return null
+  const state = gameState
 
   const mySide = gameState.mySide
   const oppSide = other(mySide)
@@ -103,11 +110,27 @@ export function GameBoard() {
     return new Set(me.bench.map((m) => m.instanceId))
   }
 
-  const selectableIds = pendingCard
-    ? pendingCard.kind === 'energy'
-      ? energyTargets()
-      : evoTargets(pendingCard)
-    : retreatTargets()
+  const pendingTrainerEffect =
+    pendingCard?.kind === 'trainer' ? getTrainerEffect(pendingCard) : null
+  const trainerTargets = pendingTrainerEffect
+    ? trainerValidTargets(state, mySide, pendingTrainerEffect)
+    : []
+
+  function myTrainerTargetIds(): Set<string> {
+    return new Set(trainerTargets.filter((t) => t.side === mySide).map((t) => t.instanceId))
+  }
+  function oppTrainerTargetIds(): Set<string> {
+    return new Set(trainerTargets.filter((t) => t.side === oppSide).map((t) => t.instanceId))
+  }
+
+  const selectableIds = pendingTrainerEffect
+    ? myTrainerTargetIds()
+    : pendingCard
+      ? pendingCard.kind === 'energy'
+        ? energyTargets()
+        : evoTargets(pendingCard)
+      : retreatTargets()
+  const oppSelectableIds = pendingTrainerEffect ? oppTrainerTargetIds() : new Set<string>()
 
   function handleHandCardClick(card: CardDef) {
     if (pendingCard?.uid === card.uid) {
@@ -123,11 +146,30 @@ export function GameBoard() {
       dispatch({ type: 'PLAY_BENCH', side: mySide, handUid: card.uid })
       return
     }
+    if (card.kind === 'trainer') {
+      const effect = getTrainerEffect(card)
+      if (effect?.targeting === 'none') {
+        dispatch({ type: 'PLAY_TRAINER', side: mySide, handUid: card.uid })
+        return
+      }
+      setPendingCard(card)
+      return
+    }
     setPendingCard(card)
+  }
+
+  function handleTrainerTarget(instanceId: string) {
+    if (!pendingCard) return
+    dispatch({ type: 'PLAY_TRAINER', side: mySide, handUid: pendingCard.uid, targetInstanceId: instanceId })
+    clearPending()
   }
 
   function handleBoardSelect(instanceId: string) {
     if (!myTurn || iNeedPromote) return
+    if (pendingTrainerEffect) {
+      handleTrainerTarget(instanceId)
+      return
+    }
     if (pendingCard) {
       if (pendingCard.kind === 'energy') {
         dispatch({ type: 'ATTACH_ENERGY', side: mySide, handUid: pendingCard.uid, targetInstanceId: instanceId })
@@ -138,6 +180,11 @@ export function GameBoard() {
       return
     }
     dispatch({ type: 'RETREAT', side: mySide, benchInstanceId: instanceId })
+  }
+
+  function handleOppBoardSelect(instanceId: string) {
+    if (!myTurn || iNeedPromote) return
+    if (pendingTrainerEffect) handleTrainerTarget(instanceId)
   }
 
   // Returns null when the card can be played right now, otherwise a German
@@ -160,7 +207,13 @@ export function GameBoard() {
       if (me.hasAttachedEnergyThisTurn) return 'Du hast in diesem Zug schon eine Energie angelegt (nur 1 pro Zug).'
       return null
     }
-    if (card.kind === 'trainer') return 'Trainer-Karten sind noch nicht spielbar.'
+    if (card.kind === 'trainer') {
+      const effect = getTrainerEffect(card)
+      if (!effect) return 'Diese Trainer-Karte ist noch nicht spielbar.'
+      if (!trainerIsPlayable(state, mySide, card))
+        return `${effect.label}: gerade kein gültiges Ziel oder keine Wirkung.`
+      return null
+    }
     return 'Diese Karte kann gerade nicht gespielt werden.'
   }
 
@@ -238,8 +291,8 @@ export function GameBoard() {
       <PlayerSide
         player={opp}
         isTurn={gameState.activeSide === oppSide}
-        selectableIds={new Set()}
-        onSelectMon={() => {}}
+        selectableIds={oppSelectableIds}
+        onSelectMon={handleOppBoardSelect}
         shakeInstanceId={shakeId}
         showHandCount
         profileBadge={
@@ -288,9 +341,11 @@ export function GameBoard() {
         {pendingCard && (
           <div className="flex items-center justify-between px-3 py-1 text-xs text-sky-300">
             <span>
-              {pendingCard.kind === 'pokemon'
-                ? `Wähle ein ${pendingCard.evolvesFrom} zum Entwickeln.`
-                : 'Wähle ein Pokémon für die Energie.'}
+              {pendingTrainerEffect
+                ? pendingTrainerEffect.prompt
+                : pendingCard.kind === 'pokemon'
+                  ? `Wähle ein ${pendingCard.evolvesFrom} zum Entwickeln.`
+                  : 'Wähle ein Pokémon für die Energie.'}
             </span>
             <button onClick={clearPending} className="text-slate-400 hover:text-white">
               Abbrechen
