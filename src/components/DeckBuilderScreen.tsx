@@ -25,7 +25,7 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(decks[0]?.id ?? null)
   const [draft, setDraft] = useState<Record<string, number>>(decks[0]?.cardCounts ?? {})
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<'all' | 'pokemon' | 'energy'>('all')
+  const [filter, setFilter] = useState<'all' | 'pokemon' | 'energy' | 'trainer'>('all')
   const [zoomCard, setZoomCard] = useState<CardDef | null>(null)
 
   const editingDeck = decks.find((d) => d.id === editingId)
@@ -168,6 +168,7 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
                   <option value="all">Alle</option>
                   <option value="pokemon">Pokémon</option>
                   <option value="energy">Energie</option>
+                  <option value="trainer">Trainer</option>
                 </select>
               </div>
               <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto rounded-lg bg-black/20 p-2 sm:grid-cols-4">

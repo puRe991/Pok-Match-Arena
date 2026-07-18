@@ -1,8 +1,80 @@
 import { attackIsUsable } from './engine'
+import { getTrainerEffect, trainerIsPlayable } from './trainers'
 import type { GameAction, GameState, InPlayPokemon, Side } from './types'
 
 function topStage(mon: InPlayPokemon) {
   return mon.stages[mon.stages.length - 1]
+}
+
+function currentHp(mon: InPlayPokemon): number {
+  return Math.max(0, topStage(mon).hp - mon.damage)
+}
+
+/**
+ * Wählt einen sinnvollen Trainer-Zug oder `null`. Es werden ausschließlich
+ * Aktionen zurückgegeben, die die Engine garantiert akzeptiert (spielbar +
+ * gültiges Ziel), damit die KI-Schleife nie an einer No-Op hängen bleibt.
+ */
+function decideAiTrainer(state: GameState, side: Side): GameAction | null {
+  const player = state.players[side]
+  const opp = state.players[side === 'p1' ? 'p2' : 'p1']
+  const active = player.active
+  if (!active) return null
+
+  const trainers = player.hand.filter((c) => c.kind === 'trainer' && getTrainerEffect(c))
+  const find = (id: string) =>
+    trainers.find((c) => getTrainerEffect(c)?.id === id && trainerIsPlayable(state, side, c))
+
+  const disablingStatus = active.statuses.some((s) => s === 'asleep' || s === 'paralyzed' || s === 'confused')
+
+  // Aktiven Zustand heilen: erst Vollheilung (behält das Pokémon), sonst Wechsel.
+  if (disablingStatus) {
+    const fullHeal = find('fullHeal')
+    if (fullHeal) return { type: 'PLAY_TRAINER', side, handUid: fullHeal.uid, targetInstanceId: active.instanceId }
+    const sw = find('switch')
+    if (sw && player.bench.length > 0) {
+      const target = [...player.bench].sort((a, b) => currentHp(b) - currentHp(a))[0]
+      return { type: 'PLAY_TRAINER', side, handUid: sw.uid, targetInstanceId: target.instanceId }
+    }
+  }
+
+  // Aktives Pokémon heilen, wenn es genug Schaden hat.
+  if (active.damage >= 30 && active.attachedEnergy.length > 0) {
+    const superPotion = find('superPotion')
+    if (superPotion) return { type: 'PLAY_TRAINER', side, handUid: superPotion.uid, targetInstanceId: active.instanceId }
+  }
+  if (active.damage >= 20) {
+    const potion = find('potion')
+    if (potion) return { type: 'PLAY_TRAINER', side, handUid: potion.uid, targetInstanceId: active.instanceId }
+  }
+
+  // Gegnerische Energie stören, wenn das aktive Pokémon des Gegners geladen ist.
+  if (opp.active && opp.active.attachedEnergy.length >= 2) {
+    const removal = find('energyRemoval')
+    if (removal) return { type: 'PLAY_TRAINER', side, handUid: removal.uid, targetInstanceId: opp.active.instanceId }
+  }
+
+  // PlusPower vor einem Angriff, falls das aktive Pokämon zuschlagen kann.
+  const hasUsableDamageAttack = topStage(active).attacks.some(
+    (atk, idx) => atk.damage > 0 && attackIsUsable(active, idx, state.turnNumber),
+  )
+  if (hasUsableDamageAttack) {
+    const plusPower = find('plusPower')
+    if (plusPower) return { type: 'PLAY_TRAINER', side, handUid: plusPower.uid }
+  }
+
+  // Karten nachziehen.
+  const nonTrainerHand = player.hand.filter((c) => c.kind !== 'trainer').length
+  if (nonTrainerHand <= 3 && player.deck.length >= 7) {
+    const oak = find('oak')
+    if (oak) return { type: 'PLAY_TRAINER', side, handUid: oak.uid }
+  }
+  if (player.deck.length >= 3) {
+    const bill = find('bill')
+    if (bill) return { type: 'PLAY_TRAINER', side, handUid: bill.uid }
+  }
+
+  return null
 }
 
 export function decideAiSetupAction(state: GameState, side: Side): GameAction | null {
@@ -52,6 +124,9 @@ export function decideNextAiAction(state: GameState, side: Side): GameAction | n
     )
     if (evo) return { type: 'EVOLVE', side, handUid: evo.uid, targetInstanceId: mon.instanceId }
   }
+
+  const trainerAction = decideAiTrainer(state, side)
+  if (trainerAction) return trainerAction
 
   if (!player.hasAttachedEnergyThisTurn) {
     const energyCards = player.hand.filter((c) => c.kind === 'energy')

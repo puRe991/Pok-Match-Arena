@@ -102,6 +102,13 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
 - K.o. & **Prize Cards** nach Standard-Regeln: 6 Prizes pro Spieler, bei K.o.
   zieht der Gegner eine Prize Card, Sieg bei allen genommenen Prizes (oder
   wenn der Gegner kein Pokémon mehr hat / nicht mehr ziehen kann)
+- **Spielbare Trainer-Karten**: eine Auswahl klassischer Trainer wirkt echt im
+  Duell – Bill (2 Karten ziehen), Professor Oak (Hand abwerfen, 7 ziehen),
+  Trank / Supertrank (heilen), Vollheilung (Zustände entfernen), Wechsel &
+  Windstoß (Aktives Pokémon tauschen – eigenes bzw. gegnerisches),
+  Pokémon-Center (alle heilen), Energie-Entzug (gegnerische Energie abwerfen),
+  Energie-Rückgewinnung und PlusPower (+10 Schaden). Karten mit Ziel öffnen eine
+  Zielauswahl auf dem Spielbrett; die CPU spielt sie ebenfalls situativ.
 
 ### Esports-Liga & Orden (Ranglisten-System)
 - **Divisionen = Regionen**: Kanto → Paldea → Meister-Liga. Jede Region ist
@@ -138,10 +145,11 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
 Um das Spiel überschaubar zu halten, wurden einige Aspekte der offiziellen
 Pokémon-TCG-Regeln bewusst vereinfacht:
 
-- **Trainer-/Item-Karten und Spezial-Energie** werden gesammelt und im Pack-
-  Opening angezeigt, sind im Deck-Builder aber aktuell nicht spielbar (nur
-  Pokémon + Basis-Energie sind deck-legal) — die Regel-Engine implementiert
-  keine Karten-Texteffekte für Trainer.
+- **Trainer-Karten** sind nur spielbar (und deck-legal), wenn die Regel-Engine
+  ihren Effekt kennt – aktuell die o. g. Auswahl klassischer „Base"-Ära-Trainer,
+  erkannt am Kartennamen (`src/game/trainers.ts`). Alle übrigen Trainer sowie
+  **Spezial-Energie** werden gesammelt und im Pack-Opening angezeigt, sind im
+  Deck-Builder aber (noch) nicht auswählbar.
 - **Set-Auswahl** ist auf die klassischen „Base“-Ära-Sets (Base Set, Jungle,
   Fossil, Base Set 2, Team Rocket, Gym Heroes) beschränkt, da diese ein
   einfaches 4-stufiges Rarity-System (Common/Uncommon/Rare/Holo Rare) und

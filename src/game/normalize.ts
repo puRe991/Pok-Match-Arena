@@ -1,4 +1,5 @@
 import type { RawSetCard } from '../api/sets'
+import { getTrainerEffect } from './trainers'
 import type {
   AttackDef,
   CardDef,
@@ -120,7 +121,9 @@ export function normalizeCard(raw: RawSetCard, setId: string, setName: string): 
 }
 
 export function isDeckLegal(card: CardDef): boolean {
-  if (card.kind === 'trainer') return false
+  // Nur Trainer mit implementiertem Effekt sind deck-legal, damit Decks
+  // garantiert spielbar bleiben.
+  if (card.kind === 'trainer') return getTrainerEffect(card) !== null
   if (card.kind === 'energy') return card.isBasicEnergy
   return true
 }

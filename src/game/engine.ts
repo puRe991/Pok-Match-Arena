@@ -1,4 +1,10 @@
 import { shuffle } from './deckBuilder'
+import {
+  getTrainerEffect,
+  trainerIsPlayable,
+  trainerValidTargets,
+  type TrainerEffect,
+} from './trainers'
 import type {
   CardDef,
   ElementType,
@@ -49,6 +55,7 @@ function createPlayer(side: Side, name: string, isAI: boolean, cards: CardDef[])
     hasAttachedEnergyThisTurn: false,
     hasRetreatedThisTurn: false,
     attackedThisTurn: false,
+    attackBonus: 0,
   }
 }
 
@@ -249,6 +256,7 @@ function startTurn(state: GameState, side: Side): void {
   player.hasAttachedEnergyThisTurn = false
   player.hasRetreatedThisTurn = false
   player.attackedThisTurn = false
+  player.attackBonus = 0
 
   if (player.active?.statuses.includes('asleep')) {
     const wokeUp = Math.random() < 0.5
@@ -294,6 +302,138 @@ function endTurn(state: GameState): void {
 
 function checkPromoteNeeded(state: GameState, side: Side): boolean {
   return state.players[side].active === null && state.phase !== 'gameover'
+}
+
+function findMon(player: PlayerState, instanceId: string): InPlayPokemon | null {
+  if (player.active?.instanceId === instanceId) return player.active
+  return player.bench.find((m) => m.instanceId === instanceId) ?? null
+}
+
+/** Wendet den Effekt einer bereits abgelegten Trainer-Karte an. */
+function applyTrainerEffect(
+  state: GameState,
+  side: Side,
+  effect: TrainerEffect,
+  targetInstanceId?: string,
+): void {
+  const player = state.players[side]
+  const opponent = state.players[otherSide(side)]
+
+  switch (effect.id) {
+    case 'bill': {
+      const drawn = player.deck.splice(0, Math.min(2, player.deck.length))
+      player.hand.push(...drawn)
+      log(state, side, `${player.name} spielt Bill und zieht ${drawn.length} Karte${drawn.length === 1 ? '' : 'n'}.`)
+      break
+    }
+    case 'oak': {
+      const discarded = player.hand.length
+      player.discard.push(...player.hand)
+      player.hand = []
+      const drawn = player.deck.splice(0, Math.min(7, player.deck.length))
+      player.hand.push(...drawn)
+      log(
+        state,
+        side,
+        `${player.name} spielt Professor Oak: ${discarded} Handkarte${discarded === 1 ? '' : 'n'} abgeworfen, ${drawn.length} neue gezogen.`,
+      )
+      break
+    }
+    case 'potion': {
+      const mon = targetInstanceId ? findMon(player, targetInstanceId) : null
+      if (!mon) break
+      const healed = Math.min(20, mon.damage)
+      mon.damage -= healed
+      log(state, side, `Trank heilt ${healed} Schaden bei ${topStage(mon).name}.`)
+      break
+    }
+    case 'superPotion': {
+      const mon = targetInstanceId ? findMon(player, targetInstanceId) : null
+      if (!mon || mon.attachedEnergy.length === 0) break
+      const [removed] = mon.attachedEnergy.splice(0, 1)
+      player.discard.push(removed)
+      const healed = Math.min(40, mon.damage)
+      mon.damage -= healed
+      log(state, side, `Supertrank wirft ${removed.name} ab und heilt ${healed} Schaden bei ${topStage(mon).name}.`)
+      break
+    }
+    case 'fullHeal': {
+      const mon = targetInstanceId ? findMon(player, targetInstanceId) : null
+      if (!mon) break
+      mon.statuses = []
+      log(state, side, `Vollheilung entfernt alle Zustände von ${topStage(mon).name}.`)
+      break
+    }
+    case 'switch': {
+      if (!player.active || !targetInstanceId) break
+      const idx = player.bench.findIndex((m) => m.instanceId === targetInstanceId)
+      if (idx === -1) break
+      const incoming = player.bench[idx]
+      const outgoing = player.active
+      outgoing.statuses = [] // Zustände verschwinden beim Verlassen der aktiven Position
+      player.bench.splice(idx, 1)
+      player.bench.push(outgoing)
+      player.active = incoming
+      log(state, side, `Wechsel: ${topStage(incoming).name} wird das neue aktive Pokémon.`)
+      break
+    }
+    case 'pokemonCenter': {
+      const mons = player.active ? [player.active, ...player.bench] : [...player.bench]
+      let discardedEnergy = 0
+      for (const mon of mons) {
+        mon.damage = 0
+        discardedEnergy += mon.attachedEnergy.length
+        player.discard.push(...mon.attachedEnergy)
+        mon.attachedEnergy = []
+      }
+      log(
+        state,
+        side,
+        `Pokémon-Center heilt alle Pokémon von ${player.name} und wirft ${discardedEnergy} Energie ab.`,
+      )
+      break
+    }
+    case 'energyRemoval': {
+      const mon = targetInstanceId ? findMon(opponent, targetInstanceId) : null
+      if (!mon || mon.attachedEnergy.length === 0) break
+      const [removed] = mon.attachedEnergy.splice(0, 1)
+      opponent.discard.push(removed)
+      log(state, side, `Energie-Entzug wirft ${removed.name} von ${topStage(mon).name} (${opponent.name}) ab.`)
+      break
+    }
+    case 'gustOfWind': {
+      if (!targetInstanceId) break
+      const idx = opponent.bench.findIndex((m) => m.instanceId === targetInstanceId)
+      if (idx === -1) break
+      const incoming = opponent.bench[idx]
+      opponent.bench.splice(idx, 1)
+      if (opponent.active) {
+        opponent.active.statuses = []
+        opponent.bench.push(opponent.active)
+      }
+      opponent.active = incoming
+      log(state, side, `Windstoß zieht ${topStage(incoming).name} von ${opponent.name} nach vorne.`)
+      break
+    }
+    case 'energyRetrieval': {
+      const recovered: CardDef[] = []
+      for (let i = player.discard.length - 1; i >= 0 && recovered.length < 2; i--) {
+        const c = player.discard[i]
+        if (c.kind === 'energy' && c.isBasicEnergy) {
+          player.discard.splice(i, 1)
+          recovered.push(c)
+        }
+      }
+      player.hand.push(...recovered)
+      log(state, side, `Energie-Rückgewinnung holt ${recovered.length} Basis-Energie zurück auf die Hand.`)
+      break
+    }
+    case 'plusPower': {
+      player.attackBonus += 10
+      log(state, side, `PlusPower: Die nächste Attacke verursacht ${player.attackBonus} Schaden mehr.`)
+      break
+    }
+  }
 }
 
 export function applyAction(prev: GameState, action: GameAction): GameState {
@@ -379,6 +519,26 @@ export function applyAction(prev: GameState, action: GameAction): GameState {
       log(state, action.side, `${player.name} hängt ${card.name} an ${topStage(target).name} an.`)
       break
     }
+    case 'PLAY_TRAINER': {
+      const player = state.players[action.side]
+      if (state.phase !== 'main' || state.activeSide !== action.side) break
+      const card = player.hand.find((c) => c.uid === action.handUid)
+      if (!card || card.kind !== 'trainer') break
+      const effect = getTrainerEffect(card)
+      if (!effect) break
+      if (!trainerIsPlayable(state, action.side, card)) break
+      if (effect.targeting !== 'none') {
+        const valid = trainerValidTargets(state, action.side, effect)
+        if (!action.targetInstanceId || !valid.some((t) => t.instanceId === action.targetInstanceId)) break
+      }
+      // Trainer wird beim Ausspielen abgelegt, danach greift sein Effekt
+      // (wichtig z. B. für Professor Oak, der die restliche Hand abwirft).
+      removeFromHand(player, action.handUid)
+      player.discard.push(card)
+      applyTrainerEffect(state, action.side, effect, action.targetInstanceId)
+      state.lastEvent = { type: 'trainer', side: action.side, name: card.name }
+      break
+    }
     case 'RETREAT': {
       const player = state.players[action.side]
       if (state.phase !== 'main' || state.activeSide !== action.side) break
@@ -421,7 +581,10 @@ export function applyAction(prev: GameState, action: GameAction): GameState {
       const attackerType = topStage(attacker.active).pokemonType
       const defenderWeakness = topStage(defender.active).weakness
       const superEffective = !!defenderWeakness && defenderWeakness === attackerType
-      const damage = superEffective ? attack.damage * 2 : attack.damage
+      // PlusPower & Co. erhöhen nur Attacken, die überhaupt Schaden verursachen.
+      const boosted = attack.damage > 0 ? attack.damage + attacker.attackBonus : attack.damage
+      const damage = superEffective ? boosted * 2 : boosted
+      attacker.attackBonus = 0
       defender.active.damage += damage
       attacker.attackedThisTurn = true
       state.lastEvent = { type: 'attack', side: action.side, damage, superEffective }
