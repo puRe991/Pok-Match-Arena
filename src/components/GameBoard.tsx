@@ -9,6 +9,7 @@ import { AttackPanel } from './AttackPanel'
 import { GameLog } from './GameLog'
 import { BoardPokemon } from './BoardPokemon'
 import { CardZoomModal } from './CardZoomModal'
+import { CardView } from './CardView'
 
 function other(side: Side): Side {
   return side === 'p1' ? 'p2' : 'p1'
@@ -22,6 +23,8 @@ export function GameBoard() {
   const myAvatarId = useProfileStore((s) => s.avatarId)
   const myRating = useProfileStore((s) => s.stats.rating)
   const lastMatch = useProfileStore((s) => s.matchHistory[0])
+  const prizeCard = useGameStore((s) => s.prizeCard)
+  const prizeLoading = useGameStore((s) => s.prizeLoading)
   const [pendingCard, setPendingCard] = useState<CardDef | null>(null)
   const [zoomCard, setZoomCard] = useState<CardDef | null>(null)
   const [shakeId, setShakeId] = useState<string | null>(null)
@@ -151,6 +154,22 @@ export function GameBoard() {
           {won ? 'Sieg!' : 'Niederlage'}
         </h1>
         <p className="max-w-md text-slate-300">{gameState.winnerReason}</p>
+        {won && (
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-yellow-500/40 bg-yellow-500/5 px-6 py-4">
+            <span className="text-sm font-bold uppercase tracking-wide text-yellow-300">🎁 Preis erhalten!</span>
+            {prizeCard ? (
+              <>
+                <CardView card={prizeCard} size="lg" onZoom={() => setZoomCard(prizeCard)} />
+                <span className="text-sm font-semibold text-white">{prizeCard.name}</span>
+                <span className="text-xs text-slate-400">Wurde deiner Sammlung hinzugefügt.</span>
+              </>
+            ) : (
+              <div className="flex h-40 w-28 items-center justify-center rounded-lg border-2 border-dashed border-yellow-500/40 text-xs text-slate-400 sm:w-40">
+                {prizeLoading ? 'Karte wird gezogen…' : 'Keine Karte verfügbar'}
+              </div>
+            )}
+          </div>
+        )}
         {eloResult && newRank && (
           <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-5 py-2 text-sm font-bold">
             <span className={eloResult.ratingDelta >= 0 ? 'text-green-400' : 'text-red-400'}>
@@ -171,6 +190,7 @@ export function GameBoard() {
         >
           Zurück zum Menü
         </button>
+        <CardZoomModal card={zoomCard} onClose={() => setZoomCard(null)} />
       </div>
     )
   }

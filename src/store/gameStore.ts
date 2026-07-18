@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { loadPackSets } from '../api/sets'
 import { decideAiSetupAction, decideNextAiAction } from '../game/ai'
-import { buildRandomLegalDeck } from '../game/deckBuilder'
+import { buildRandomLegalDeck, cloneWithUid } from '../game/deckBuilder'
 import { applyAction, createInitialState } from '../game/engine'
 import { loadSetPool } from '../game/packs'
 import { badgeAt } from '../game/ranked/regions'
@@ -34,6 +34,10 @@ interface GameStore {
   pvpReported: boolean
   mmStatus: 'idle' | 'searching' | 'error'
   mmError: string | null
+  /** Nach einem Sieg gezogene Belohnungskarte (zufällig aus allen Sets). */
+  prizeCard: CardDef | null
+  /** True, während die Belohnungskarte nach einem Sieg gezogen wird. */
+  prizeLoading: boolean
 
   startLocalGame: () => Promise<void>
   startRankedGame: () => Promise<void>
@@ -97,14 +101,38 @@ export const useGameStore = create<GameStore>((set, get) => {
     const isMp = next.mode !== 'local'
     const oppSide: Side = next.mySide === 'p1' ? 'p2' : 'p1'
     const opp = get().opponentProfile
+    const won = next.winner === next.mySide
     useProfileStore.getState().recordMatch({
       mode: isMp ? 'multiplayer' : 'cpu',
-      result: next.winner === next.mySide ? 'win' : 'loss',
+      result: won ? 'win' : 'loss',
       opponentName: next.players[oppSide].name,
       opponentAvatarId: isMp ? (opp?.avatarId ?? null) : null,
       opponentRating: isMp ? (opp?.rating ?? null) : null,
       turns: next.turnNumber,
     })
+    if (won) void awardPrizeCard()
+  }
+
+  // Zieht nach einem Sieg eine zufällige Karte aus allen verfügbaren Sets,
+  // legt sie in die Sammlung und zeigt sie als Preis auf dem Ergebnisbildschirm.
+  async function awardPrizeCard() {
+    set({ prizeCard: null, prizeLoading: true })
+    try {
+      const sets = await loadPackSets()
+      const chosen = sets[Math.floor(Math.random() * sets.length)]
+      const pool = chosen ? await loadSetPool(chosen) : null
+      const source = pool?.all ?? []
+      const picked = source[Math.floor(Math.random() * source.length)]
+      if (!picked) {
+        set({ prizeLoading: false })
+        return
+      }
+      const prize = cloneWithUid(picked)
+      useCollectionStore.getState().addCards([prize])
+      set({ prizeCard: prize, prizeLoading: false })
+    } catch {
+      set({ prizeLoading: false })
+    }
   }
 
   function applyLocal(action: GameAction) {
@@ -193,6 +221,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     pvpReported: false,
     mmStatus: 'idle',
     mmError: null,
+    prizeCard: null,
+    prizeLoading: false,
 
     startLocalGame: async () => {
       const p1Cards = myActiveDeckCards()
@@ -200,7 +230,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         set({ startError: 'Bitte zuerst ein aktives Deck im Deck-Builder auswählen.' })
         return
       }
-      set({ starting: true, startError: null, ranked: false, pvp: false })
+      set({ starting: true, startError: null, ranked: false, pvp: false, prizeCard: null, prizeLoading: false })
       try {
         const p2Cards = await buildRandomOpponentDeck()
         const state = createInitialState('local', 'p1', p1Cards, p2Cards, {
@@ -223,7 +253,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       const profile = useLeagueStore.getState().ensureProfile()
       const badge = badgeAt(profile.regionIndex, profile.arenaIndex)
       const leaderName = badge ? `${badge.leader} (${badge.name})` : 'Arena-Leiter'
-      set({ starting: true, startError: null, ranked: false, pvp: false })
+      set({ starting: true, startError: null, ranked: false, pvp: false, prizeCard: null, prizeLoading: false })
       try {
         const p2Cards = await buildRandomOpponentDeck(badge?.themeType)
         const state = createInitialState('local', 'p1', p1Cards, p2Cards, {
@@ -353,6 +383,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         pvpReported: false,
         mmStatus: 'idle',
         mmError: null,
+        prizeCard: null,
+        prizeLoading: false,
       })
     },
   }
