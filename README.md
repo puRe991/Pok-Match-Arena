@@ -114,6 +114,11 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
 - **Spezial-Energie**: Die Doppelte Farblos-Energie (liefert 2 Farblos-Symbole)
   ist deck-legal, wird in Packs gesammelt und von der Kosten- und Rückzugs-Engine
   korrekt verrechnet.
+- **Poké-Powers**: Erste spielbare Fähigkeit – Blastoise **„Regentanz"** hängt
+  beliebig oft eine Basis-Wasser-Energie aus der Hand an ein Wasser-Pokémon an
+  (unabhängig von der 1-Energie-pro-Zug-Regel, blockiert bei Schlaf/Verwirrung/
+  Paralyse). Aktivierbar über einen Button am Spielbrett; die CPU nutzt sie
+  ebenfalls. Framework in `src/game/powers.ts`.
 
 ### Sealed-Duell (Limited-Format)
 - Neues Spielformat: 6 Packs eines Sets öffnen, daraus wird
@@ -165,6 +170,7 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
 
 ### Sonstiges
 - Responsive Layout für Desktop & Tablet, animiertes Feedback bei Angriffen
+- Respektiert die Systemeinstellung „Bewegung reduzieren" (Animationen aus)
 
 ## Vereinfachte Regeln
 
@@ -185,5 +191,8 @@ Pokémon-TCG-Regeln bewusst vereinfacht:
 - **Status-Effekte** werden per Stichwort-Erkennung aus dem echten
   Angriffstext abgeleitet (z. B. „poison“, „paralyze“, „flip a coin“ →
   50%-Chance), nicht durch exaktes Parsen jeder individuellen Karten-Regel.
+- **Poké-Powers/Bodies** werden aus den Kartendaten übernommen, sind aber nur
+  aktivierbar, wenn die Engine ihre Regel kennt (aktuell Blastoise „Regentanz“,
+  `src/game/powers.ts`); alle übrigen Fähigkeiten sind derzeit ohne Spieleffekt.
 - Pro Pokémon nur eine Attacke pro Zug, ein Energie-Attachment pro Zug, ein
   Retreat pro Zug — wie im echten Spiel.

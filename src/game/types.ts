@@ -30,6 +30,12 @@ interface CardMeta {
   imageLarge: string
 }
 
+/** Poké-Power / Poké-Body einer Pokémon-Karte (aus den Kartendaten). */
+export interface PokemonPower {
+  name: string
+  text: string
+}
+
 export interface PokemonCardDef extends CardMeta {
   kind: 'pokemon'
   pokemonType: ElementType
@@ -39,6 +45,8 @@ export interface PokemonCardDef extends CardMeta {
   attacks: AttackDef[]
   retreatCost: number
   weakness?: ElementType
+  /** Optionale Fähigkeit (Poké-Power/Body); nur unterstützte sind spielbar. */
+  power?: PokemonPower
 }
 
 export interface EnergyCardDef extends CardMeta {
@@ -131,6 +139,7 @@ export type GameAction =
   | { type: 'EVOLVE'; side: Side; handUid: string; targetInstanceId: string }
   | { type: 'ATTACH_ENERGY'; side: Side; handUid: string; targetInstanceId: string }
   | { type: 'PLAY_TRAINER'; side: Side; handUid: string; targetInstanceId?: string }
+  | { type: 'USE_POWER'; side: Side; sourceInstanceId: string; targetInstanceId?: string; energyUid?: string }
   | { type: 'RETREAT'; side: Side; benchInstanceId: string }
   | { type: 'ATTACK'; side: Side; attackIndex: number }
   | { type: 'PROMOTE'; side: Side; benchInstanceId: string }

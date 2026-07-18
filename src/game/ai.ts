@@ -1,5 +1,6 @@
 import { attackIsUsable } from './engine'
 import { getTrainerEffect, trainerIsPlayable } from './trainers'
+import { getPokemonPower, rainDanceTargets, usablePowerSources } from './powers'
 import type { GameAction, GameState, InPlayPokemon, Side } from './types'
 
 function topStage(mon: InPlayPokemon) {
@@ -108,6 +109,37 @@ export function decideAiSetupAction(state: GameState, side: Side): GameAction | 
   return { type: 'SETUP_READY', side }
 }
 
+/**
+ * Nutzt eine Poké-Power, wenn sinnvoll (aktuell Regentanz: extra Wasser-Energie
+ * an ein Wasser-Pokémon). Gibt nur garantiert gültige Aktionen zurück.
+ */
+function decideAiPower(state: GameState, side: Side): GameAction | null {
+  const player = state.players[side]
+  for (const source of usablePowerSources(state, side)) {
+    const def = getPokemonPower(topStage(source))
+    if (def?.id !== 'rainDance') continue
+    const waterEnergy = player.hand.find(
+      (c) => c.kind === 'energy' && c.isBasicEnergy && c.energyType === 'Water',
+    )
+    if (!waterEnergy) continue
+    const targets = rainDanceTargets(state, side)
+    // Bevorzuge das aktive Pokémon, sonst das Wasser-Pokémon mit der wenigsten Energie.
+    const target =
+      targets.find((m) => m.instanceId === player.active?.instanceId) ??
+      [...targets].sort((a, b) => a.attachedEnergy.length - b.attachedEnergy.length)[0]
+    if (target) {
+      return {
+        type: 'USE_POWER',
+        side,
+        sourceInstanceId: source.instanceId,
+        targetInstanceId: target.instanceId,
+        energyUid: waterEnergy.uid,
+      }
+    }
+  }
+  return null
+}
+
 export function decideNextAiAction(state: GameState, side: Side): GameAction | null {
   if (state.phase !== 'main') return null
   const player = state.players[side]
@@ -140,6 +172,9 @@ export function decideNextAiAction(state: GameState, side: Side): GameAction | n
 
   const trainerAction = decideAiTrainer(state, side)
   if (trainerAction) return trainerAction
+
+  const powerAction = decideAiPower(state, side)
+  if (powerAction) return powerAction
 
   if (!player.hasAttachedEnergyThisTurn) {
     const energyCards = player.hand.filter((c) => c.kind === 'energy')

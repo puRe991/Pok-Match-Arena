@@ -5,6 +5,7 @@ import {
   trainerValidTargets,
   type TrainerEffect,
 } from './trainers'
+import { getPokemonPower, powerIsUsable, rainDanceTargets } from './powers'
 import type {
   CardDef,
   ElementType,
@@ -585,6 +586,37 @@ export function applyAction(prev: GameState, action: GameAction): GameState {
       player.discard.push(card)
       applyTrainerEffect(state, action.side, effect, action.targetInstanceId)
       state.lastEvent = { type: 'trainer', side: action.side, name: card.name }
+      break
+    }
+    case 'USE_POWER': {
+      const player = state.players[action.side]
+      if (state.phase !== 'main' || state.activeSide !== action.side) break
+      const source = findMon(player, action.sourceInstanceId)
+      if (!source) break
+      const def = getPokemonPower(topStage(source))
+      if (!def) break
+      if (!powerIsUsable(state, action.side, action.sourceInstanceId)) break
+
+      switch (def.id) {
+        case 'rainDance': {
+          // Ziel muss ein Wasser-Pokémon in Spiel sein.
+          const targets = rainDanceTargets(state, action.side)
+          const target = targets.find((m) => m.instanceId === action.targetInstanceId)
+          if (!target) break
+          // Zu bewegende Basis-Wasser-Energie aus der Hand wählen.
+          const energyIdx = action.energyUid
+            ? player.hand.findIndex((c) => c.uid === action.energyUid)
+            : player.hand.findIndex((c) => c.kind === 'energy' && c.isBasicEnergy && c.energyType === 'Water')
+          if (energyIdx === -1) break
+          const card = player.hand[energyIdx]
+          if (card.kind !== 'energy' || !card.isBasicEnergy || card.energyType !== 'Water') break
+          player.hand.splice(energyIdx, 1)
+          target.attachedEnergy.push(card)
+          // Regentanz ist unabhängig von der normalen 1-Energie-pro-Zug-Regel.
+          log(state, action.side, `Regentanz: ${card.name} wird an ${topStage(target).name} angehängt.`)
+          break
+        }
+      }
       break
     }
     case 'RETREAT': {

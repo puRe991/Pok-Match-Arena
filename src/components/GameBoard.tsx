@@ -3,6 +3,7 @@ import { rankForRating } from '../profile/profile'
 import { useGameStore, isMyTurn } from '../store/gameStore'
 import { useProfileStore } from '../store/profileStore'
 import { getTrainerEffect, trainerIsPlayable, trainerValidTargets } from '../game/trainers'
+import { getPokemonPower, powerIsUsable, rainDanceTargets, usablePowerSources } from '../game/powers'
 import type { CardDef, Side } from '../game/types'
 import { PlayerSide } from './PlayerSide'
 import { HandView } from './HandView'
@@ -27,6 +28,7 @@ export function GameBoard() {
   const prizeCard = useGameStore((s) => s.prizeCard)
   const prizeLoading = useGameStore((s) => s.prizeLoading)
   const [pendingCard, setPendingCard] = useState<CardDef | null>(null)
+  const [pendingPowerSourceId, setPendingPowerSourceId] = useState<string | null>(null)
   const [zoomCard, setZoomCard] = useState<CardDef | null>(null)
   const [shakeId, setShakeId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -65,6 +67,14 @@ export function GameBoard() {
     }
   }, [gameState?.lastEvent, gameState?.players])
 
+  useEffect(() => {
+    // Regentanz-Auswahl automatisch schließen, sobald sie nicht mehr nutzbar ist
+    // (keine Wasser-Energie mehr auf der Hand, Zugwechsel, Quelle weg).
+    if (pendingPowerSourceId && gameState && !powerIsUsable(gameState, gameState.mySide, pendingPowerSourceId)) {
+      setPendingPowerSourceId(null)
+    }
+  }, [pendingPowerSourceId, gameState])
+
   if (!gameState) return null
   const state = gameState
 
@@ -78,6 +88,7 @@ export function GameBoard() {
 
   function clearPending() {
     setPendingCard(null)
+    setPendingPowerSourceId(null)
   }
 
   function notify(msg: string) {
@@ -123,13 +134,22 @@ export function GameBoard() {
     return new Set(trainerTargets.filter((t) => t.side === oppSide).map((t) => t.instanceId))
   }
 
-  const selectableIds = pendingTrainerEffect
-    ? myTrainerTargetIds()
-    : pendingCard
-      ? pendingCard.kind === 'energy'
-        ? energyTargets()
-        : evoTargets(pendingCard)
-      : retreatTargets()
+  // Poké-Powers (z. B. Blastoise „Regentanz"): aktivierbare Quellen + Ziele.
+  const myPowerSources =
+    myTurn && !pendingCard && !pendingTrainerEffect && !iNeedPromote ? usablePowerSources(state, mySide) : []
+  const powerTargetIds = pendingPowerSourceId
+    ? new Set(rainDanceTargets(state, mySide).map((m) => m.instanceId))
+    : new Set<string>()
+
+  const selectableIds = pendingPowerSourceId
+    ? powerTargetIds
+    : pendingTrainerEffect
+      ? myTrainerTargetIds()
+      : pendingCard
+        ? pendingCard.kind === 'energy'
+          ? energyTargets()
+          : evoTargets(pendingCard)
+        : retreatTargets()
   const oppSelectableIds = pendingTrainerEffect ? oppTrainerTargetIds() : new Set<string>()
 
   function handleHandCardClick(card: CardDef) {
@@ -164,8 +184,31 @@ export function GameBoard() {
     clearPending()
   }
 
+  function handlePowerTarget(instanceId: string) {
+    if (!pendingPowerSourceId) return
+    // Erste Basis-Wasser-Energie aus der Hand für den Regentanz wählen.
+    const energy = me.hand.find((c) => c.kind === 'energy' && c.isBasicEnergy && c.energyType === 'Water')
+    if (!energy) {
+      clearPending()
+      return
+    }
+    dispatch({
+      type: 'USE_POWER',
+      side: mySide,
+      sourceInstanceId: pendingPowerSourceId,
+      targetInstanceId: instanceId,
+      energyUid: energy.uid,
+    })
+    // Regentanz ist wiederholbar – die Auswahl bleibt offen; ein Effekt schließt
+    // sie automatisch, sobald keine Wasser-Energie/Ziele mehr übrig sind.
+  }
+
   function handleBoardSelect(instanceId: string) {
     if (!myTurn || iNeedPromote) return
+    if (pendingPowerSourceId) {
+      handlePowerTarget(instanceId)
+      return
+    }
     if (pendingTrainerEffect) {
       handleTrainerTarget(instanceId)
       return
@@ -326,6 +369,26 @@ export function GameBoard() {
               onAttack={(idx) => dispatch({ type: 'ATTACK', side: mySide, attackIndex: idx })}
             />
           )}
+          {myPowerSources.map((source) => {
+            const def = getPokemonPower(source.stages[source.stages.length - 1])
+            if (!def) return null
+            const active = pendingPowerSourceId === source.instanceId
+            return (
+              <button
+                key={source.instanceId}
+                type="button"
+                onClick={() => setPendingPowerSourceId(active ? null : source.instanceId)}
+                title={def.description}
+                className={`rounded-lg border px-3 py-2 text-sm font-bold transition-colors ${
+                  active
+                    ? 'border-sky-400 bg-sky-500/30 text-sky-100'
+                    : 'border-sky-500/50 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20'
+                }`}
+              >
+                ⚡ {def.label} · {source.stages[source.stages.length - 1].name}
+              </button>
+            )
+          })}
           <button
             type="button"
             disabled={!myTurn || iNeedPromote || !me.active}
@@ -338,6 +401,14 @@ export function GameBoard() {
       </div>
 
       <div className="rounded-xl bg-black/20 pb-1">
+        {pendingPowerSourceId && (
+          <div className="flex items-center justify-between px-3 py-1 text-xs text-sky-300">
+            <span>Regentanz: Wähle ein Wasser-Pokémon für die zusätzliche Wasser-Energie.</span>
+            <button onClick={clearPending} className="text-slate-400 hover:text-white">
+              Fertig
+            </button>
+          </div>
+        )}
         {pendingCard && (
           <div className="flex items-center justify-between px-3 py-1 text-xs text-sky-300">
             <span>

@@ -26,6 +26,7 @@ export interface RawSetCard {
   types?: string[]
   evolvesFrom?: string
   attacks?: { name: string; cost?: string[]; damage?: string; text?: string }[]
+  abilities?: { name: string; text?: string; type?: string }[]
   retreatCost?: string[]
   weaknesses?: { type: string; value: string }[]
   rarity?: string
@@ -103,7 +104,7 @@ export function loadSetCards(setId: string): Promise<RawSetCard[]> {
   if (!cached) {
     cached = (async () => {
       try {
-        const url = `${API_BASE}/cards?q=${encodeURIComponent(`set.id:${setId}`)}&pageSize=250&select=id,name,supertype,subtypes,hp,types,evolvesFrom,attacks,retreatCost,weaknesses,rarity,number,images`
+        const url = `${API_BASE}/cards?q=${encodeURIComponent(`set.id:${setId}`)}&pageSize=250&select=id,name,supertype,subtypes,hp,types,evolvesFrom,attacks,abilities,retreatCost,weaknesses,rarity,number,images`
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 8000)
         const res = await fetch(url, { signal: controller.signal })

@@ -109,6 +109,24 @@ export const FALLBACK_POKEMON: PokemonCardDef[] = [
     'Abra',
   ),
   mon('51', 'Eevee', 'Colorless', 'basic', 60, [{ name: 'Tackle', cost: ['Colorless'], damage: 20, text: '' }], 1, undefined, undefined),
+  {
+    ...mon(
+      '2',
+      'Blastoise',
+      'Water',
+      'stage2',
+      100,
+      [{ name: 'Hydro Pump', cost: ['Water', 'Water', 'Colorless'], damage: 60, text: '' }],
+      2,
+      'Lightning',
+      'Wartortle',
+    ),
+    rarity: 'Holo Rare',
+    power: {
+      name: 'Rain Dance',
+      text: 'As often as you like during your turn, you may attach 1 Water Energy card to 1 of your Water Pokémon.',
+    },
+  },
 ]
 
 function energy(id: string, type: ElementType): EnergyCardDef {

@@ -82,6 +82,7 @@ export function normalizePokemonCard(raw: RawSetCard, setId: string, setName: st
   if (attacks.length === 0) return null
   const retreatCost = raw.retreatCost?.length ?? 1
   const weaknessRaw = raw.weaknesses?.[0]?.type
+  const rawPower = raw.abilities?.[0]
   return {
     kind: 'pokemon',
     ...meta(raw, setId, setName),
@@ -92,6 +93,7 @@ export function normalizePokemonCard(raw: RawSetCard, setId: string, setName: st
     attacks,
     retreatCost: Math.min(4, Math.max(0, retreatCost)),
     weakness: weaknessRaw ? toElementType(weaknessRaw) : undefined,
+    power: rawPower ? { name: rawPower.name, text: rawPower.text ?? '' } : undefined,
   }
 }
 
