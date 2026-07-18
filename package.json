@@ -6,8 +6,15 @@
   "engines": {
     "node": ">=20"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -17,6 +24,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
     "peerjs": "^1.5.5",

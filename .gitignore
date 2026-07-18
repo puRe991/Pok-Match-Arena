@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Env (Supabase-Keys u. Ä.) – .env.example bleibt versioniert
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

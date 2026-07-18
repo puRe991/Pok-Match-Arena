@@ -4,9 +4,11 @@ import { decideAiSetupAction, decideNextAiAction } from '../game/ai'
 import { buildRandomLegalDeck } from '../game/deckBuilder'
 import { applyAction, createInitialState } from '../game/engine'
 import { loadSetPool } from '../game/packs'
-import type { CardDef, GameAction, GameState, Side } from '../game/types'
+import { badgeAt } from '../game/ranked/regions'
+import type { CardDef, ElementType, GameAction, GameState, Side } from '../game/types'
 import { MultiplayerLink, type WireMessage } from '../multiplayer/peer'
 import { expandDeckFromCollection, useCollectionStore } from './collectionStore'
+import { useLeagueStore } from './leagueStore'
 
 export type Screen = 'menu' | 'setup' | 'game' | 'lobby'
 
@@ -19,8 +21,11 @@ interface GameStore {
   mpError: string | null
   starting: boolean
   startError: string | null
+  /** Läuft gerade ein gewertetes Liga-Match (gegen den Arena-Leiter)? */
+  ranked: boolean
 
   startLocalGame: () => Promise<void>
+  startRankedGame: () => Promise<void>
   hostMultiplayerGame: () => Promise<void>
   joinMultiplayerGame: (code: string) => Promise<void>
   dispatch: (action: GameAction) => void
@@ -38,12 +43,12 @@ function aiIsUp(state: GameState): Side | null {
   return null
 }
 
-async function buildRandomOpponentDeck(): Promise<CardDef[]> {
+async function buildRandomOpponentDeck(preferType?: ElementType): Promise<CardDef[]> {
   const sets = await loadPackSets()
   const chosen = sets[Math.floor(Math.random() * sets.length)]
   if (!chosen) return []
   const pool = await loadSetPool(chosen)
-  return buildRandomLegalDeck(pool.all, 60)
+  return buildRandomLegalDeck(pool.all, 60, preferType)
 }
 
 function myActiveDeckCards(): CardDef[] | null {
@@ -81,6 +86,11 @@ export const useGameStore = create<GameStore>((set, get) => {
     const link = get().link
     if (state.mode === 'host' && link) {
       link.send({ type: 'state', state: { ...next, mode: 'guest', mySide: 'p2' } })
+    }
+    // Gewertetes Liga-Match: Ergebnis genau einmal an die Liga melden.
+    if (get().ranked && state.phase !== 'gameover' && next.phase === 'gameover' && next.winner) {
+      set({ ranked: false })
+      useLeagueStore.getState().reportMatchResult(next.winner === next.mySide)
     }
     scheduleAiIfNeeded()
   }
@@ -122,6 +132,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     mpError: null,
     starting: false,
     startError: null,
+    ranked: false,
 
     startLocalGame: async () => {
       const p1Cards = myActiveDeckCards()
@@ -129,7 +140,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         set({ startError: 'Bitte zuerst ein aktives Deck im Deck-Builder auswählen.' })
         return
       }
-      set({ starting: true, startError: null })
+      set({ starting: true, startError: null, ranked: false })
       try {
         const p2Cards = await buildRandomOpponentDeck()
         const state = createInitialState('local', 'p1', p1Cards, p2Cards, { p2IsAI: true })
@@ -137,6 +148,30 @@ export const useGameStore = create<GameStore>((set, get) => {
         scheduleAiIfNeeded()
       } catch {
         set({ starting: false, startError: 'Gegner-Deck konnte nicht erstellt werden.' })
+      }
+    },
+
+    startRankedGame: async () => {
+      const p1Cards = myActiveDeckCards()
+      if (!p1Cards) {
+        set({ startError: 'Bitte zuerst ein aktives Deck im Deck-Builder auswählen.' })
+        return
+      }
+      const profile = useLeagueStore.getState().ensureProfile()
+      const badge = badgeAt(profile.regionIndex, profile.arenaIndex)
+      const leaderName = badge ? `${badge.leader} (${badge.name})` : 'Arena-Leiter'
+      set({ starting: true, startError: null, ranked: false })
+      try {
+        const p2Cards = await buildRandomOpponentDeck(badge?.themeType)
+        const state = createInitialState('local', 'p1', p1Cards, p2Cards, {
+          p2IsAI: true,
+          p1Name: profile.handle,
+          p2Name: leaderName,
+        })
+        set({ gameState: state, screen: 'setup', starting: false, ranked: true })
+        scheduleAiIfNeeded()
+      } catch {
+        set({ starting: false, ranked: false, startError: 'Arena-Leiter-Deck konnte nicht erstellt werden.' })
       }
     },
 
@@ -197,6 +232,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         mpStatus: 'idle',
         mpError: null,
         startError: null,
+        ranked: false,
       })
     },
   }

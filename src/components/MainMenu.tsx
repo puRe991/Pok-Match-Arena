@@ -85,7 +85,15 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
           </div>
         )}
 
-        <div className="mt-2 flex gap-3">
+        <button
+          type="button"
+          onClick={() => onNavigate('league')}
+          className="mt-2 rounded-full border border-yellow-500/50 bg-gradient-to-r from-yellow-500/20 to-amber-500/10 px-6 py-3 font-bold text-yellow-200 hover:from-yellow-500/30"
+        >
+          🏆 Esports-Liga &amp; Orden
+        </button>
+
+        <div className="mt-1 flex gap-3">
           <button
             type="button"
             onClick={() => onNavigate('packs')}

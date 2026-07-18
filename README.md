@@ -75,6 +75,20 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
   zieht der Gegner eine Prize Card, Sieg bei allen genommenen Prizes (oder
   wenn der Gegner kein Pokémon mehr hat / nicht mehr ziehen kann)
 
+### Esports-Liga & Orden (Ranglisten-System)
+- **Divisionen = Regionen**: Kanto → Paldea → Meister-Liga. Jede Region ist
+  eine Division mit 8 Arenen (Sub-Rängen).
+- **Alle Orden erspielbar**: gewertete Matches gegen thematische Arena-Leiter-
+  Decks (Feuer, Wasser, …) sammeln Season-Punkte. Wer beim Werten der Saison
+  unter die **Top 3** kommt, erhält den **Orden** und **steigt** in die nächste
+  Arena / Region auf; die unteren Plätze steigen ab.
+- **Orden-Vitrine** über alle 9 Regionen (72 Orden) und eine **globale
+  Bestenliste** (Elo). Erreichbar über „🏆 Esports-Liga & Orden" im Hauptmenü.
+- **Offline-first**: läuft ohne Backend mit lokaler Ladder-Simulation
+  (Ghost-Trainer). Sind `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` gesetzt
+  (siehe `.env.example` + `supabase/migrations/`), schaltet die App auf die
+  geteilte Online-Liga um. Konzept: `docs/esports-*-konzept.md`.
+
 ### Multiplayer & NPC
 - Einfache heuristische CPU-KI (spielt Bank, entwickelt, hängt passende
   Energie an, greift an, zieht sich zurück, promotet nach K.o.) mit einem
