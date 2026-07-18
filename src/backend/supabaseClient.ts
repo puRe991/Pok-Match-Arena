@@ -21,3 +21,28 @@ if (url && anonKey) {
 
 export const supabase = client
 export const isSupabaseConfigured = client !== null
+
+let sessionPromise: Promise<string | null> | null = null
+
+/**
+ * Stellt (einmalig, gecacht) eine anonyme Session her, damit der Client für
+ * RLS-geschützte Schreibzugriffe eine `auth.uid()` hat. Ist anonymes Login im
+ * Projekt (noch) deaktiviert, wird der Fehler geschluckt und `null` geliefert –
+ * die App läuft dann read-only weiter (Bestenliste) bzw. fällt lokal zurück.
+ */
+export function ensureAnonSession(): Promise<string | null> {
+  if (!client) return Promise.resolve(null)
+  if (!sessionPromise) {
+    sessionPromise = (async () => {
+      const { data } = await client.auth.getSession()
+      if (data.session?.user) return data.session.user.id
+      const { data: signed, error } = await client.auth.signInAnonymously()
+      if (error) {
+        // Anonyme Logins deaktiviert o. Ä. – nicht fatal.
+        return null
+      }
+      return signed.user?.id ?? null
+    })()
+  }
+  return sessionPromise
+}
