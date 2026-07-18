@@ -84,10 +84,15 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
   Arena / Region auf; die unteren Plätze steigen ab.
 - **Orden-Vitrine** über alle 9 Regionen (72 Orden) und eine **globale
   Bestenliste** (Elo). Erreichbar über „🏆 Esports-Liga & Orden" im Hauptmenü.
+- **Accounts & gewertetes PvP** (mit Supabase): Registrierung/Login per
+  E-Mail + Passwort, echtes Matchmaking gegen reale Gegner (Queue-Pairing per
+  SQL-Funktion + PeerJS-Duell) und **serverautoritatives Elo** (beidseitige
+  Ergebnis-Bestätigung, Client kann Elo nicht fälschen) als Anti-Cheat-Basis.
 - **Offline-first**: läuft ohne Backend mit lokaler Ladder-Simulation
   (Ghost-Trainer). Sind `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` gesetzt
-  (siehe `.env.example` + `supabase/migrations/`), schaltet die App auf die
-  geteilte Online-Liga um. Konzept: `docs/esports-*-konzept.md`.
+  (siehe `.env.example` + `supabase/migrations/` + `docs/SUPABASE_SETUP.md`),
+  schaltet die App auf die geteilte Online-Liga um. Konzept:
+  `docs/esports-*-konzept.md`.
 
 ### Multiplayer & NPC
 - Einfache heuristische CPU-KI (spielt Bank, entwickelt, hängt passende

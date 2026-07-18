@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { PROMOTION_SLOTS, RELEGATION_SLOTS, LADDER_SIZE } from '../game/ranked/ghosts'
 import { REGIONS, TOTAL_BADGES } from '../game/ranked/regions'
 import type { ElementType } from '../game/types'
+import { useAuthStore } from '../store/authStore'
 import { useGameStore } from '../store/gameStore'
 import { useLeagueStore } from '../store/leagueStore'
+import { AuthPanel } from './AuthPanel'
 import type { View } from '../App'
 
 const TYPE_COLOR: Record<ElementType, string> = {
@@ -48,6 +50,7 @@ function Header({ onNavigate }: { onNavigate: (view: View) => void }) {
   const profile = useLeagueStore((s) => s.profile)!
   const setHandle = useLeagueStore((s) => s.setHandle)
   const backendKind = useLeagueStore((s) => s.backendKind)
+  const serverElo = useLeagueStore((s) => s.serverElo)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(profile.handle)
   const region = REGIONS[profile.regionIndex]
@@ -102,9 +105,12 @@ function Header({ onNavigate }: { onNavigate: (view: View) => void }) {
           >
             {backendKind === 'supabase' ? '● Online-Liga' : '○ Offline-Liga'}
           </span>
-          <p className="mt-2 text-3xl font-black text-yellow-400">{profile.careerElo}</p>
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Elo</p>
+          <p className="mt-2 text-3xl font-black text-yellow-400">{serverElo ?? profile.careerElo}</p>
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">{serverElo !== null ? 'PvP-Elo' : 'Elo'}</p>
         </div>
+      </div>
+      <div className="mt-3">
+        <AuthPanel />
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
         <Stat label="Orden" value={`${profile.earnedBadges.length}/${TOTAL_BADGES}`} />
@@ -155,6 +161,8 @@ function LadderTab() {
   return (
     <div className="flex flex-col gap-4">
       {lastResult && <SeasonBanner onClose={clearResult} />}
+
+      <PvpSection />
 
       <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-4">
         <div className="flex items-center justify-between">
@@ -233,6 +241,54 @@ function LadderTab() {
         Gewinne Matches, um Season-Punkte zu sammeln. Beim Werten der Saison steigen die Top {PROMOTION_SLOTS} auf und
         erhalten den Orden.
       </p>
+    </div>
+  )
+}
+
+function PvpSection() {
+  const available = useAuthStore((s) => s.available)
+  const user = useAuthStore((s) => s.user)
+  const findRankedMatch = useGameStore((s) => s.findRankedMatch)
+  const cancelMatchmaking = useGameStore((s) => s.cancelMatchmaking)
+  const mmStatus = useGameStore((s) => s.mmStatus)
+  const mmError = useGameStore((s) => s.mmError)
+
+  if (!available) return null
+
+  return (
+    <div className="rounded-2xl border border-sky-700/50 bg-sky-500/10 p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-bold text-white">🌐 Gewertetes PvP</p>
+          <p className="text-xs text-slate-300">Echte Gegner · serverautoritatives Elo · geteilte Bestenliste</p>
+        </div>
+        {mmStatus === 'searching' ? (
+          <button
+            type="button"
+            onClick={() => void cancelMatchmaking()}
+            className="rounded-full border border-slate-500 px-4 py-2 text-sm font-bold text-slate-200 hover:border-slate-300"
+          >
+            Suche abbrechen
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!user}
+            onClick={() => void findRankedMatch()}
+            className="rounded-full bg-sky-500 px-5 py-2 font-bold text-white shadow hover:bg-sky-400 disabled:opacity-40"
+          >
+            Gegner suchen
+          </button>
+        )}
+      </div>
+      {mmStatus === 'searching' && (
+        <p className="mt-3 flex items-center gap-2 text-sm text-sky-200">
+          <span className="h-2 w-2 animate-ping rounded-full bg-sky-400" /> Suche nach einem Gegner … du kannst warten
+          oder abbrechen.
+        </p>
+      )}
+      {!user && <p className="mt-2 text-xs text-amber-300">Zum gewerteten Spielen bitte oben anmelden oder registrieren.</p>}
+      {mmError && <p className="mt-2 text-xs text-amber-400">{mmError}</p>}
     </div>
   )
 }

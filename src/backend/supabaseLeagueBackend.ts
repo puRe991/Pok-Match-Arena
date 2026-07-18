@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RankedProfile } from '../game/ranked/types'
 import type { LeaderboardRow, LeagueBackend } from './leagueBackend'
 import { LocalLeagueBackend } from './localLeagueBackend'
-import { ensureAnonSession } from './supabaseClient'
+import { currentUserId } from './supabaseClient'
 
 const NETWORK_TIMEOUT_MS = 6000
 
@@ -41,7 +41,7 @@ export class SupabaseLeagueBackend implements LeagueBackend {
 
   async syncProfile(profile: RankedProfile): Promise<void> {
     try {
-      const id = await withTimeout(ensureAnonSession(), NETWORK_TIMEOUT_MS, null)
+      const id = await withTimeout(currentUserId(), NETWORK_TIMEOUT_MS, null)
       if (!id) return
       // Nur nicht-gewertete Metadaten werden vom Client geschrieben. Elo/Division
       // sind serverseitig geschützt (RLS) und werden hier nicht überschrieben.

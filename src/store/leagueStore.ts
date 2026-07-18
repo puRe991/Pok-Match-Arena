@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { leagueBackend, type LeaderboardRow } from '../backend'
+import { supabase } from '../backend/supabaseClient'
 import { buildLadder, playerRank } from '../game/ranked/ghosts'
 import { applyMatch, createProfile, resolveSeason } from '../game/ranked/season'
 import type { LadderEntry, RankedProfile, SeasonResult } from '../game/ranked/types'
@@ -21,6 +22,8 @@ interface LeagueState {
   lastResult: SeasonResult | null
   lastEloDelta: number | null
   backendKind: 'local' | 'supabase'
+  /** Serverautoritatives PvP-Elo des angemeldeten Accounts (aus profiles). */
+  serverElo: number | null
 
   ensureProfile: () => RankedProfile
   setHandle: (handle: string) => void
@@ -30,6 +33,10 @@ interface LeagueState {
   endSeason: () => SeasonResult | null
   clearResult: () => void
   refreshLeaderboard: () => Promise<void>
+  /** Verbindet den echten Account mit dem Liga-Profil (Upsert + Server-Elo laden). */
+  bindAccount: (userId: string, handle?: string) => Promise<void>
+  /** Lädt das serverseitige PvP-Elo neu (z. B. nach einem gewerteten Match). */
+  refreshServerProfile: () => Promise<void>
 }
 
 export const useLeagueStore = create<LeagueState>()(
@@ -41,6 +48,7 @@ export const useLeagueStore = create<LeagueState>()(
       lastResult: null,
       lastEloDelta: null,
       backendKind: leagueBackend.kind,
+      serverElo: null,
 
       ensureProfile: () => {
         const existing = get().profile
@@ -96,6 +104,35 @@ export const useLeagueStore = create<LeagueState>()(
           set({ leaderboard: rows })
         } finally {
           set({ loadingLeaderboard: false })
+        }
+      },
+
+      bindAccount: async (userId: string, handle?: string) => {
+        const profile = get().ensureProfile()
+        if (handle && handle.trim()) get().setHandle(handle)
+        if (!supabase) return
+        const finalHandle = get().profile?.handle ?? profile.handle
+        // Profilzeile anlegen/aktualisieren (nur Handle; Elo ist serverseitig geschützt).
+        await supabase.from('profiles').upsert({ id: userId, handle: finalHandle }, { onConflict: 'id' })
+        await get().refreshServerProfile()
+      },
+
+      refreshServerProfile: async () => {
+        if (!supabase) return
+        const { data } = await supabase.auth.getSession()
+        const id = data.session?.user?.id
+        if (!id) {
+          set({ serverElo: null })
+          return
+        }
+        const { data: row } = await supabase.from('profiles').select('elo, handle').eq('id', id).maybeSingle()
+        if (row) {
+          set({ serverElo: (row as { elo: number }).elo })
+          const serverHandle = (row as { handle?: string }).handle
+          const current = get().profile
+          if (serverHandle && current && current.handle !== serverHandle) {
+            set({ profile: { ...current, handle: serverHandle } })
+          }
         }
       },
     }),

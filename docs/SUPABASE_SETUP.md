@@ -2,8 +2,13 @@
 
 Die App läuft **offline-first**: ohne Konfiguration nutzt sie eine lokale
 Ladder-Simulation. Mit einem Supabase-Projekt schaltet sie auf die geteilte
-Online-Liga (gemeinsame Bestenliste). Diese Anleitung führt durch die
-Einrichtung.
+Online-Liga (echte Accounts, gewertetes PvP, gemeinsame Bestenliste).
+
+> **Status für das Projekt `thrxwzzpgkbzjkorpsrs` (Poke-match):** Schema
+> `0001` + `0002` sind bereits eingespielt, E-Mail-Registrierung mit
+> Auto-Bestätigung ist aktiviert. Die App ist über die `.env` verbunden und
+> sofort nutzbar (registrieren → „Gegner suchen"). Die Abschnitte 2/3 sind nur
+> für einen Neuaufbau relevant.
 
 ## 1. `.env` (bereits vorbereitet)
 
@@ -59,14 +64,23 @@ Nach den Schritten 2 + 3 im Liga-Screen den Tab **🌍 Meister-Liga** öffnen un
 „↻ Aktualisieren" klicken — es sollten echte Profilzeilen (statt der
 Ghost-Trainer) erscheinen.
 
-## Was noch fehlt (nächste Ausbaustufe)
+## Accounts & gewertetes PvP (umgesetzt)
 
-Für echtes **PvP-Matchmaking** und autoritative Wertung sind zwei Edge
-Functions vorgesehen (im Schema-Kommentar beschrieben):
-- `confirm_match` — verrechnet Elo bei beidseitig bestätigtem Ergebnis
-- `resolve_season` — Auf-/Abstieg, Orden-Vergabe, Season-Soft-Reset
+- **Registrierung/Login** per E-Mail + Passwort (Liga-Screen, Auth-Panel). Der
+  Account wird beim Anmelden mit dem Liga-Profil verbunden (`bindAccount` →
+  Upsert in `profiles`).
+- **PvP-Matchmaking**: „Gegner suchen" ruft die SQL-Funktion `matchmake()` auf
+  (atomares Pairing per `FOR UPDATE SKIP LOCKED`). Der Wartende hostet eine
+  PeerJS-Session, der Beitretende bekommt den Code und verbindet sich → das
+  Duell läuft P2P wie gehabt.
+- **Serverautoritative Elo**: nach dem Match melden beide Seiten das Ergebnis
+  (`report_match_result()`); bei Übereinstimmung verrechnet die Funktion das
+  Elo **serverseitig** in `profiles` (Client kann Elo nicht direkt schreiben —
+  Trigger-Schutz). Das ist das Anti-Cheat-Fundament.
 
-Diese werden serverseitig mit `service_role` ausgeführt (nicht vom Client) und
-sind der nächste Implementierungsschritt, sobald das Schema steht. Aktuell
-werden Matches gegen CPU-Arena-Leiter gewertet und lokal verrechnet; die
-Bestenliste wird bereits aus Supabase gelesen.
+### Nächste Ausbaustufe
+- `resolve_season` als Edge Function (serverseitiger Season-Loop: Auf-/Abstieg,
+  Orden-Vergabe, Soft-Reset) — aktuell läuft die Season-Wertung der
+  **Solo-Kampagne** lokal.
+- Signierte Match-Logs / Dispute-Auflösung für stärkeres Anti-Cheat.
+- Divisions-/Elo-Sync zwischen Solo-Fortschritt und PvP-Elo.
