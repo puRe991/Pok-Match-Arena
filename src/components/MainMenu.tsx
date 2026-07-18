@@ -135,6 +135,14 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
           🎯 Quests &amp; Erfolge
         </button>
 
+        <button
+          type="button"
+          onClick={() => onNavigate('sealed')}
+          className="rounded-full border border-cyan-500/50 bg-cyan-500/10 px-6 py-2 text-sm font-bold text-cyan-200 hover:bg-cyan-500/20"
+        >
+          🃏 Sealed-Duell
+        </button>
+
         <div className="mt-1 flex gap-3">
           <button
             type="button"

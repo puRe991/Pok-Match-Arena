@@ -42,6 +42,8 @@ interface GameStore {
 
   startLocalGame: () => Promise<void>
   startRankedGame: () => Promise<void>
+  /** Startet ein Sealed-Duell mit einem vorab gebauten Deck (nicht aus der Sammlung). */
+  startSealedGame: (playerCards: CardDef[]) => Promise<void>
   hostMultiplayerGame: () => Promise<void>
   joinMultiplayerGame: (code: string) => Promise<void>
   findRankedMatch: () => Promise<void>
@@ -244,6 +246,30 @@ export const useGameStore = create<GameStore>((set, get) => {
         scheduleAiIfNeeded()
       } catch {
         set({ starting: false, startError: 'Gegner-Deck konnte nicht erstellt werden.' })
+      }
+    },
+
+    startSealedGame: async (playerCards: CardDef[]) => {
+      if (playerCards.length === 0) {
+        set({ startError: 'Sealed-Deck ist leer – öffne zuerst Packs.' })
+        return
+      }
+      set({ starting: true, startError: null, ranked: false, pvp: false, prizeCard: null, prizeLoading: false })
+      try {
+        // Gegner erhält ein vergleichbares Sealed-Deck (gleiche Deckgröße).
+        const sets = await loadPackSets()
+        const chosen = sets[Math.floor(Math.random() * sets.length)]
+        const pool = chosen ? await loadSetPool(chosen) : null
+        const p2Cards = pool ? buildRandomLegalDeck(pool.all, playerCards.length) : []
+        const state = createInitialState('local', 'p1', playerCards, p2Cards, {
+          p2IsAI: true,
+          p1Name: useProfileStore.getState().name,
+          p2Name: 'Sealed-Gegner',
+        })
+        set({ gameState: state, screen: 'setup', starting: false })
+        scheduleAiIfNeeded()
+      } catch {
+        set({ starting: false, startError: 'Sealed-Gegner-Deck konnte nicht erstellt werden.' })
       }
     },
 

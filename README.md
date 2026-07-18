@@ -115,6 +115,14 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
   ist deck-legal, wird in Packs gesammelt und von der Kosten- und Rückzugs-Engine
   korrekt verrechnet.
 
+### Sealed-Duell (Limited-Format)
+- Neues Spielformat: 6 Packs eines Sets öffnen, daraus wird
+  automatisch ein legales 40-Karten-Deck gebaut (Basis-Energie frei gestellt),
+  „Deck neu würfeln" für Varianten, dann Duell gegen einen gleichwertigen
+  Sealed-Gegner. Die eigene Sammlung bleibt unberührt (temporärer Pool).
+- Logik in `src/game/sealed.ts`, Screen `src/components/SealedScreen.tsx`,
+  Start über `startSealedGame` im `gameStore`.
+
 ### Fortschritt: Münzen, Quests & Erfolge
 - **Münzen** als Spielwährung: Siege (25) und Niederlagen (10) bringen Münzen,
   ebenso abgeschlossene Quests und freigeschaltete Erfolge (`🪙`-Anzeige im
