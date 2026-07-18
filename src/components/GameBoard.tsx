@@ -73,6 +73,11 @@ export function GameBoard() {
     setPendingCard(null)
   }
 
+  function notify(msg: string) {
+    setToast(msg)
+    window.setTimeout(() => setToast((cur) => (cur === msg ? null : cur)), 2400)
+  }
+
   function evoTargets(card: CardDef): Set<string> {
     if (card.kind !== 'pokemon' || card.stage !== 'stage1') return new Set()
     const ids: string[] = []
@@ -105,9 +110,13 @@ export function GameBoard() {
     : retreatTargets()
 
   function handleHandCardClick(card: CardDef) {
-    if (!myTurn || iNeedPromote) return
     if (pendingCard?.uid === card.uid) {
       clearPending()
+      return
+    }
+    const reason = playableReason(card)
+    if (reason) {
+      notify(reason)
       return
     }
     if (card.kind === 'pokemon' && card.stage === 'basic') {
@@ -131,15 +140,31 @@ export function GameBoard() {
     dispatch({ type: 'RETREAT', side: mySide, benchInstanceId: instanceId })
   }
 
-  function playableHandUid(card: CardDef): boolean {
-    if (!myTurn || iNeedPromote) return false
-    if (card.kind === 'pokemon' && card.stage === 'basic') return me.bench.length < 5
-    if (card.kind === 'pokemon' && card.stage === 'stage1') return evoTargets(card).size > 0
-    if (card.kind === 'energy') return !me.hasAttachedEnergyThisTurn
-    return false
+  // Returns null when the card can be played right now, otherwise a German
+  // explanation of why it is currently blocked.
+  function playableReason(card: CardDef): string | null {
+    if (!myTurn) return 'Du bist gerade nicht am Zug.'
+    if (iNeedPromote) return 'Wähle zuerst ein neues aktives Pokémon von deiner Bank.'
+    if (card.kind === 'pokemon' && card.stage === 'basic') {
+      if (me.bench.length >= 5) return 'Deine Bank ist voll (max. 5 Pokémon).'
+      return null
+    }
+    if (card.kind === 'pokemon' && card.stage === 'stage1') {
+      if (evoTargets(card).size === 0)
+        return `Kein ${card.evolvesFrom ?? 'passendes Pokémon'} im Spiel, das sich jetzt entwickeln kann (nicht im selben Zug gelegt).`
+      return null
+    }
+    if (card.kind === 'pokemon' && card.stage === 'stage2')
+      return 'Stufe-2-Entwicklungen sind noch nicht spielbar.'
+    if (card.kind === 'energy') {
+      if (me.hasAttachedEnergyThisTurn) return 'Du hast in diesem Zug schon eine Energie angelegt (nur 1 pro Zug).'
+      return null
+    }
+    if (card.kind === 'trainer') return 'Trainer-Karten sind noch nicht spielbar.'
+    return 'Diese Karte kann gerade nicht gespielt werden.'
   }
 
-  const playableUids = new Set(me.hand.filter(playableHandUid).map((c) => c.uid))
+  const playableUids = new Set(me.hand.filter((c) => playableReason(c) === null).map((c) => c.uid))
 
   if (gameState.phase === 'gameover') {
     const won = gameState.winner === mySide

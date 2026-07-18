@@ -22,7 +22,7 @@ export function HandView({ cards, selectedUid, playableUids, onCardClick, onZoom
           size="lg"
           selected={selectedUid === card.uid}
           dimmed={!playableUids.has(card.uid)}
-          onClick={playableUids.has(card.uid) ? () => onCardClick(card) : undefined}
+          onClick={() => onCardClick(card)}
           onZoom={onZoom ? () => onZoom(card) : undefined}
         />
       ))}
