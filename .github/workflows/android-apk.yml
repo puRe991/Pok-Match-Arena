@@ -1,0 +1,54 @@
+name: Android Dev-APK
+
+# Baut bei jedem Push/PR (und manuell) eine Debug-APK und stellt sie
+# als Download-Artefakt bereit. So lässt sich die Dev-APK direkt aus
+# dem GitHub-Actions-Lauf herunterladen.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: JDK 21 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Android SDK einrichten
+        uses: android-actions/setup-android@v3
+
+      - name: Dependencies installieren
+        run: npm ci
+
+      - name: Web-Build + Capacitor-Sync
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Debug-APK bauen
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: android
+
+      - name: APK umbenennen
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk pok-match-arena-dev-debug.apk
+
+      - name: APK als Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: pok-match-arena-dev-apk
+          path: pok-match-arena-dev-debug.apk
+          if-no-files-found: error

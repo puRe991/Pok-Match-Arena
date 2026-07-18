@@ -31,6 +31,34 @@ npm test        # Vitest (einmaliger Lauf)
 npm run test:watch  # Vitest im Watch-Modus
 ```
 
+## Android-App (Capacitor)
+
+Die Web-App wird per [Capacitor](https://capacitorjs.com/) in eine native
+Android-App verpackt (`appId: io.pokmatch.arena`, min. Android 7.0 / API 24).
+
+**Dev-APK herunterladen (ohne lokales Setup):** Der GitHub-Actions-Workflow
+[`Android Dev-APK`](.github/workflows/android-apk.yml) baut bei jedem Push
+eine Debug-APK. Unter **Actions → Android Dev-APK → letzter Lauf → Artifacts**
+liegt `pok-match-arena-dev-apk` zum Download bereit.
+
+**APK lokal bauen** (benötigt JDK 17+ und das Android SDK, `ANDROID_HOME`
+gesetzt):
+
+```bash
+npm run android:apk
+# → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Weitere Skripte:
+
+```bash
+npm run cap:sync       # Web-Assets → Android kopieren
+npm run android:build  # Build + Sync + Android Studio öffnen
+```
+
+APK auf dem Gerät installieren: In den Android-Einstellungen „Installation aus
+unbekannten Quellen" für den Browser/Dateimanager erlauben, dann die APK öffnen.
+
 ### Windows: „Cannot find module '...lightningcss.win32-ia32-msvc.node'"
 
 Dieser Fehler bedeutet, dass eine **32-Bit-Version von Node.js** installiert
