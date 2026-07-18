@@ -13,6 +13,7 @@ import { expandDeckFromCollection, useCollectionStore } from './collectionStore'
 import { useAuthStore } from './authStore'
 import { useLeagueStore } from './leagueStore'
 import { useProfileStore } from './profileStore'
+import { useProgressStore } from './progressStore'
 
 export type Screen = 'menu' | 'setup' | 'game' | 'lobby'
 
@@ -110,6 +111,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       opponentRating: isMp ? (opp?.rating ?? null) : null,
       turns: next.turnNumber,
     })
+    // Fortschritt/Währung: Match zählen, Münzen & Erfolge vergeben.
+    useProgressStore.getState().recordMatch(won)
     if (won) void awardPrizeCard()
   }
 

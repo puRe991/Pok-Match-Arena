@@ -115,6 +115,19 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
   ist deck-legal, wird in Packs gesammelt und von der Kosten- und Rückzugs-Engine
   korrekt verrechnet.
 
+### Fortschritt: Münzen, Quests & Erfolge
+- **Münzen** als Spielwährung: Siege (25) und Niederlagen (10) bringen Münzen,
+  ebenso abgeschlossene Quests und freigeschaltete Erfolge (`🪙`-Anzeige im
+  Hauptmenü und Pack-Screen).
+- **Tagesquests**: jeden Tag drei deterministisch gewählte Aufgaben (Duelle
+  spielen/gewinnen, Packs öffnen) mit Fortschrittsbalken und Münz-Belohnung zum
+  Einlösen. Reset um Mitternacht.
+- **Erfolge**: dauerhafte Meilensteine (erster Sieg, 10/50 Siege, 25 Duelle,
+  10/50 Packs, 100 Karten) – jeder zahlt seine Münz-Belohnung genau einmal aus.
+- **Karten-Shop**: sind die täglichen Gratis-Packs erschöpft, lässt sich für
+  Münzen ein Extra-Pack kaufen. State liegt in `src/store/progressStore.ts`,
+  die Regeln in `src/game/progress/quests.ts`.
+
 ### Esports-Liga & Orden (Ranglisten-System)
 - **Divisionen = Regionen**: Kanto → Paldea → Meister-Liga. Jede Region ist
   eine Division mit 8 Arenen (Sub-Rängen).

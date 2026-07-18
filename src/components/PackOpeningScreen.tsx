@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { loadPackSets, type TcgSet } from '../api/sets'
 import { DAILY_FREE_PACKS, formatTimeUntilReset, remainingFreePacks } from '../game/dailyPacks'
-import { useCollectionStore } from '../store/collectionStore'
+import { PACK_PRICE, useCollectionStore } from '../store/collectionStore'
+import { useProgressStore } from '../store/progressStore'
 import type { CardDef } from '../game/types'
 import { CardZoomModal } from './CardZoomModal'
 
@@ -65,8 +66,10 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
   const [openError, setOpenError] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
   const openSetPack = useCollectionStore((s) => s.openSetPack)
+  const buyPack = useCollectionStore((s) => s.buyPack)
   const packHistory = useCollectionStore((s) => s.packHistory)
   const dailyFree = useCollectionStore((s) => s.dailyFree)
+  const coins = useProgressStore((s) => s.coins)
 
   const freeLeft = remainingFreePacks(dailyFree, now)
 
@@ -97,6 +100,21 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function handleBuy() {
+    if (!selected || opening || coins < PACK_PRICE) return
+    setOpening(true)
+    setRevealed(null)
+    setOpenError(null)
+    try {
+      const cards = await buyPack(selected)
+      setRevealed(cards)
+    } catch (err) {
+      setOpenError(err instanceof Error ? err.message : 'Pack konnte nicht gekauft werden.')
+    } finally {
+      setOpening(false)
+    }
+  }
+
   return (
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
@@ -104,7 +122,7 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
           ← Menü
         </button>
         <h1 className="text-xl font-bold text-white">Pack-Opening</h1>
-        <div />
+        <div className="rounded-full bg-yellow-500/15 px-3 py-1 text-sm font-bold text-yellow-300">🪙 {coins}</div>
       </div>
 
       <div className="flex flex-col items-center gap-1 rounded-2xl border border-yellow-500/30 bg-yellow-500/5 p-3 text-center">
@@ -168,6 +186,17 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
           )}
         </AnimatePresence>
 
+        {!revealed && freeLeft <= 0 && (
+          <button
+            type="button"
+            disabled={!selected || opening || coins < PACK_PRICE}
+            onClick={handleBuy}
+            className="rounded-full bg-yellow-500 px-6 py-2 text-sm font-bold text-slate-900 hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            🪙 Extra-Pack kaufen ({PACK_PRICE} Münzen)
+          </button>
+        )}
+
         {openError && <p className="text-sm text-amber-400">{openError}</p>}
 
         {revealed && (
@@ -186,10 +215,19 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
                   Noch ein Gratis-Pack öffnen ({freeLeft} übrig)
                 </button>
               ) : (
-                <p className="text-sm text-slate-400">
-                  Alle Gratis-Packs für heute geöffnet – neue in{' '}
-                  <span className="font-mono text-slate-200">{formatTimeUntilReset(now)}</span>
-                </p>
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    disabled={opening || coins < PACK_PRICE}
+                    onClick={handleBuy}
+                    className="rounded-full bg-yellow-500 px-6 py-2 font-bold text-slate-900 hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    🪙 Extra-Pack kaufen ({PACK_PRICE} Münzen)
+                  </button>
+                  <p className="text-sm text-slate-400">
+                    Gratis-Packs erschöpft – neue in{' '}
+                    <span className="font-mono text-slate-200">{formatTimeUntilReset(now)}</span>
+                  </p>
+                </div>
               )}
             </div>
           </div>
