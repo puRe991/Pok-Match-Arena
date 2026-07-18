@@ -38,9 +38,17 @@ const POKEMON_BUDGET = 24
  * Basic Energy) from a card pool. Used for the auto-generated starter deck
  * and for the NPC opponent's "zufälliges Deck".
  */
-export function buildRandomLegalDeck(pool: CardDef[], size = 60): CardDef[] {
+export function buildRandomLegalDeck(pool: CardDef[], size = 60, preferType?: ElementType): CardDef[] {
   const legal = pool.filter(isDeckLegal)
-  const basics = shuffle(legal.filter((c) => c.kind === 'pokemon' && c.stage === 'basic') as PokemonCardDef[])
+  const shuffledBasics = shuffle(legal.filter((c) => c.kind === 'pokemon' && c.stage === 'basic') as PokemonCardDef[])
+  // Optional: Pokémon des Wunsch-Typs zuerst, damit ein thematisches
+  // Arena-Leiter-Deck (z. B. Feuer) entsteht, ohne die Zufallslogik zu ändern.
+  const basics = preferType
+    ? [
+        ...shuffledBasics.filter((c) => c.pokemonType === preferType),
+        ...shuffledBasics.filter((c) => c.pokemonType !== preferType),
+      ]
+    : shuffledBasics
   const evosByFrom = new Map<string, PokemonCardDef[]>()
   for (const c of legal) {
     if (c.kind === 'pokemon' && c.stage !== 'basic' && c.evolvesFrom) {
