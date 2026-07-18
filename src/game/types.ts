@@ -45,6 +45,13 @@ export interface EnergyCardDef extends CardMeta {
   kind: 'energy'
   energyType: ElementType
   isBasicEnergy: boolean
+  /**
+   * Welche Energie-Symbole diese Karte beim Bezahlen von Attacken-/Rückzugs-
+   * kosten liefert. Für Basis-Energie undefiniert (⇒ genau ein Symbol des
+   * eigenen Typs). Spezial-Energie wie die Doppelte Farblos-Energie liefert
+   * mehrere Symbole (`['Colorless', 'Colorless']`).
+   */
+  provides?: ElementType[]
 }
 
 export interface TrainerCardDef extends CardMeta {

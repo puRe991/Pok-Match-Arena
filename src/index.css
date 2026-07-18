@@ -80,3 +80,16 @@ button,
 .animate-flash-ring {
   animation: flash-ring 0.6s ease-in-out;
 }
+
+/* Barrierefreiheit: Wenn der Nutzer „Bewegung reduzieren“ aktiviert hat,
+   Animationen und Übergänge weitgehend abschalten. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

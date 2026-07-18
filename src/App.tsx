@@ -10,8 +10,9 @@ import { PackOpeningScreen } from './components/PackOpeningScreen'
 import { DeckBuilderScreen } from './components/DeckBuilderScreen'
 import { LeagueScreen } from './components/LeagueScreen'
 import { ProfileScreen } from './components/ProfileScreen'
+import { ProgressScreen } from './components/ProgressScreen'
 
-export type View = 'home' | 'packs' | 'deckbuilder' | 'league' | 'profile'
+export type View = 'home' | 'packs' | 'deckbuilder' | 'league' | 'profile' | 'progress'
 
 function App() {
   const ensureStarterDeck = useCollectionStore((s) => s.ensureStarterDeck)
@@ -30,6 +31,7 @@ function App() {
     if (view === 'deckbuilder') return <DeckBuilderScreen onBack={() => setView('home')} />
     if (view === 'league') return <LeagueScreen onNavigate={setView} />
     if (view === 'profile') return <ProfileScreen onBack={() => setView('home')} />
+    if (view === 'progress') return <ProgressScreen onBack={() => setView('home')} />
     if (screen === 'menu') return <MainMenu onNavigate={setView} />
     return <LobbyScreen />
   }

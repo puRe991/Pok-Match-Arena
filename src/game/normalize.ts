@@ -95,14 +95,39 @@ export function normalizePokemonCard(raw: RawSetCard, setId: string, setName: st
   }
 }
 
+/**
+ * Unterstützte Spezial-Energie: erkannt am (normalisierten) Kartennamen.
+ * `provides` gibt an, welche Energie-Symbole die Karte liefert – nur diese
+ * Spezial-Energien sind deck-legal, damit die Kosten-Engine sie kennt.
+ */
+const SPECIAL_ENERGY: Record<string, { provides: ElementType[] }> = {
+  doublecolorlessenergy: { provides: ['Colorless', 'Colorless'] },
+}
+
+function energyNameKey(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+/** Liefert die Spezial-Energie-Definition oder `null` (Basis-/unbekannte Energie). */
+export function specialEnergyProvides(card: EnergyCardDef): ElementType[] | null {
+  if (card.isBasicEnergy) return null
+  return SPECIAL_ENERGY[energyNameKey(card.name)]?.provides ?? null
+}
+
 export function normalizeEnergyCard(raw: RawSetCard, setId: string, setName: string): EnergyCardDef {
   const isBasicEnergy = (raw.subtypes ?? []).includes('Basic')
   const guessedType = KNOWN_TYPES.find((t) => raw.name.startsWith(t))
+  const special = !isBasicEnergy ? SPECIAL_ENERGY[energyNameKey(raw.name)] : undefined
   return {
     kind: 'energy',
     ...meta(raw, setId, setName),
     energyType: guessedType ?? 'Colorless',
     isBasicEnergy,
+    provides: special?.provides,
   }
 }
 
@@ -124,6 +149,8 @@ export function isDeckLegal(card: CardDef): boolean {
   // Nur Trainer mit implementiertem Effekt sind deck-legal, damit Decks
   // garantiert spielbar bleiben.
   if (card.kind === 'trainer') return getTrainerEffect(card) !== null
-  if (card.kind === 'energy') return card.isBasicEnergy
+  // Basis-Energie sowie unterstützte Spezial-Energie (z. B. Doppelte
+  // Farblos-Energie) sind deck-legal.
+  if (card.kind === 'energy') return card.isBasicEnergy || specialEnergyProvides(card) !== null
   return true
 }

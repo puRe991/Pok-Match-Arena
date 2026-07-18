@@ -5,7 +5,11 @@ import { buildRandomLegalDeck, expandDeck } from '../game/deckBuilder'
 import { isDeckLegal } from '../game/normalize'
 import { consumeFreePack, remainingFreePacks, type DailyFreeState } from '../game/dailyPacks'
 import { loadSetPool, openPack as drawPack } from '../game/packs'
+import { useProgressStore } from './progressStore'
 import type { CardDef } from '../game/types'
+
+/** Preis eines im Shop gekauften Extra-Packs (über die Gratis-Packs hinaus). */
+export const PACK_PRICE = 60
 
 export function collectionById(collection: Record<string, { card: CardDef; count: number }>): Record<string, CardDef> {
   const out: Record<string, CardDef> = {}
@@ -60,6 +64,7 @@ interface CollectionState {
   addCards: (cards: CardDef[]) => void
   freePacksRemaining: () => number
   openSetPack: (set: TcgSet) => Promise<CardDef[]>
+  buyPack: (set: TcgSet) => Promise<CardDef[]>
   createDeck: (name: string) => string
   updateDeck: (id: string, cardCounts: Record<string, number>) => void
   renameDeck: (id: string, name: string) => void
@@ -111,6 +116,31 @@ export const useCollectionStore = create<CollectionState>()(
             ...state.packHistory,
           ].slice(0, 50),
         }))
+        useProgressStore.getState().recordPackOpened(cards.length)
+        return cards
+      },
+
+      buyPack: async (tcgSet: TcgSet) => {
+        // Extra-Pack gegen Münzen: verbraucht kein Gratis-Kontingent.
+        if (!useProgressStore.getState().spendCoins(PACK_PRICE)) {
+          throw new Error(`Nicht genug Münzen – ein Pack kostet ${PACK_PRICE} Münzen.`)
+        }
+        const pool = await loadSetPool(tcgSet)
+        const cards = drawPack(pool)
+        get().addCards(cards)
+        set((state) => ({
+          packHistory: [
+            {
+              id: newId(),
+              setId: pool.setId,
+              setName: pool.setName,
+              openedAt: Date.now(),
+              cardIds: cards.map((c) => c.id),
+            },
+            ...state.packHistory,
+          ].slice(0, 50),
+        }))
+        useProgressStore.getState().recordPackOpened(cards.length)
         return cards
       },
 

@@ -4,6 +4,7 @@ import { avatarById, rankForRating } from '../profile/profile'
 import { useGameStore } from '../store/gameStore'
 import { useCollectionStore } from '../store/collectionStore'
 import { useProfileStore } from '../store/profileStore'
+import { useProgressStore } from '../store/progressStore'
 import type { View } from '../App'
 
 export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
@@ -19,6 +20,7 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
   const activeDeckId = useCollectionStore((s) => s.activeDeckId)
   const dailyFree = useCollectionStore((s) => s.dailyFree)
   const freePacksLeft = remainingFreePacks(dailyFree)
+  const coins = useProgressStore((s) => s.coins)
   const [joinCode, setJoinCode] = useState('')
   const [showJoin, setShowJoin] = useState(false)
 
@@ -43,6 +45,15 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
             {rank.icon} {rank.label} · {rating}
           </span>
         </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onNavigate('progress')}
+        title="Quests & Erfolge öffnen"
+        className="-mt-3 rounded-full bg-yellow-500/15 px-4 py-1 text-sm font-bold text-yellow-300 transition-colors hover:bg-yellow-500/25"
+      >
+        🪙 {coins}
       </button>
 
       <div>
@@ -114,6 +125,14 @@ export function MainMenu({ onNavigate }: { onNavigate: (view: View) => void }) {
           className="mt-2 rounded-full border border-yellow-500/50 bg-gradient-to-r from-yellow-500/20 to-amber-500/10 px-6 py-3 font-bold text-yellow-200 hover:from-yellow-500/30"
         >
           🏆 Esports-Liga &amp; Orden
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('progress')}
+          className="rounded-full border border-amber-500/50 bg-amber-500/10 px-6 py-2 text-sm font-bold text-amber-200 hover:bg-amber-500/20"
+        >
+          🎯 Quests &amp; Erfolge
         </button>
 
         <div className="mt-1 flex gap-3">

@@ -2,9 +2,20 @@ import { useMemo, useState } from 'react'
 import { useCollectionStore } from '../store/collectionStore'
 import { cardLimit, validateDeck } from '../game/deckLegality'
 import { isDeckLegal } from '../game/normalize'
+import { computeDeckStats, parseDeck, serializeDeck } from '../game/deckStats'
 import type { CardDef } from '../game/types'
 import { CardView } from './CardView'
 import { CardZoomModal } from './CardZoomModal'
+
+const TYPE_LABEL_DE: Record<string, string> = {
+  Fire: 'Feuer',
+  Water: 'Wasser',
+  Grass: 'Pflanze',
+  Lightning: 'Elektro',
+  Fighting: 'Kampf',
+  Psychic: 'Psycho',
+  Colorless: 'Farblos',
+}
 
 function kindLabel(card: CardDef): string {
   if (card.kind === 'pokemon') return card.pokemonType
@@ -27,6 +38,9 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'pokemon' | 'energy' | 'trainer'>('all')
   const [zoomCard, setZoomCard] = useState<CardDef | null>(null)
+  const [ioMode, setIoMode] = useState<'export' | 'import' | null>(null)
+  const [importText, setImportText] = useState('')
+  const [importError, setImportError] = useState<string | null>(null)
 
   const editingDeck = decks.find((d) => d.id === editingId)
 
@@ -60,6 +74,32 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
     updateDeck(editingId, draft)
   }
 
+  /**
+   * Übernimmt ein importiertes Deck – aber nur Karten, die auch in der Sammlung
+   * vorhanden und deck-legal sind, gedeckelt auf Karten-Limit und Bestand.
+   */
+  function applyImport() {
+    const { cardCounts } = parseDeck(importText)
+    const next: Record<string, number> = {}
+    let skipped = 0
+    for (const [id, count] of Object.entries(cardCounts)) {
+      const entry = collection[id]
+      if (!entry || !isDeckLegal(entry.card)) {
+        skipped += 1
+        continue
+      }
+      next[id] = Math.min(count, cardLimit(entry.card), entry.count)
+    }
+    if (Object.keys(next).length === 0) {
+      setImportError('Keine passenden Karten in deiner Sammlung gefunden.')
+      return
+    }
+    setDraft(next)
+    setIoMode(null)
+    setImportText('')
+    setImportError(skipped > 0 ? `${skipped} nicht besitzbare Karte(n) übersprungen.` : null)
+  }
+
   const collectionList = useMemo(() => {
     return Object.values(collection)
       .filter((entry) => isDeckLegal(entry.card))
@@ -69,6 +109,7 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
   }, [collection, filter, search])
 
   const validation = editingDeck ? validateDeck({ cardCounts: draft }, collection) : null
+  const stats = useMemo(() => computeDeckStats(draft, collection), [draft, collection])
   const deckEntries = Object.entries(draft)
     .filter(([, count]) => count > 0)
     .map(([id, count]) => ({ id, count, card: collection[id]?.card }))
@@ -133,14 +174,90 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
             </button>
             <button
               onClick={() => {
+                setImportError(null)
+                setIoMode('export')
+              }}
+              className="ml-auto rounded-full border border-slate-600 px-4 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700"
+            >
+              Export
+            </button>
+            <button
+              onClick={() => {
+                setImportText('')
+                setImportError(null)
+                setIoMode('import')
+              }}
+              className="rounded-full border border-slate-600 px-4 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700"
+            >
+              Import
+            </button>
+            <button
+              onClick={() => {
                 deleteDeck(editingDeck.id)
                 setEditingId(decks[0]?.id ?? null)
               }}
-              className="ml-auto rounded-full border border-red-500/50 px-4 py-1 text-xs font-bold text-red-300 hover:bg-red-500/10"
+              className="rounded-full border border-red-500/50 px-4 py-1 text-xs font-bold text-red-300 hover:bg-red-500/10"
             >
               Löschen
             </button>
           </div>
+
+          {importError && <p className="rounded-lg bg-slate-700/40 p-2 text-xs text-slate-300">{importError}</p>}
+
+          <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-xl bg-black/20 p-3 text-xs text-slate-300">
+            <span className="font-bold text-slate-200">Statistik:</span>
+            <span>🃏 {stats.pokemon} Pokémon</span>
+            <span>⚡ {stats.energy} Energie</span>
+            <span>🎴 {stats.trainer} Trainer</span>
+            <span className="text-slate-500">|</span>
+            <span>Basis {stats.basic} · St.1 {stats.stage1} · St.2 {stats.stage2}</span>
+            <span className="text-slate-500">|</span>
+            <span>Ø Rückzug {stats.avgRetreat}</span>
+            {Object.entries(stats.byType).length > 0 && (
+              <>
+                <span className="text-slate-500">|</span>
+                <span>{Object.entries(stats.byType).map(([t, n]) => `${TYPE_LABEL_DE[t] ?? t} ${n}`).join(' · ')}</span>
+              </>
+            )}
+          </div>
+
+          {ioMode && (
+            <div className="rounded-xl border border-slate-700 bg-slate-800/60 p-3">
+              {ioMode === 'export' ? (
+                <>
+                  <p className="mb-2 text-xs font-bold text-slate-200">Deck-Code (kopieren &amp; teilen):</p>
+                  <textarea
+                    readOnly
+                    value={serializeDeck(editingDeck.name, draft)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="h-32 w-full resize-none rounded border border-slate-700 bg-slate-900 p-2 font-mono text-xs text-slate-200 outline-none"
+                  />
+                </>
+              ) : (
+                <>
+                  <p className="mb-2 text-xs font-bold text-slate-200">Deck-Code einfügen:</p>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    placeholder={'# Deck: …\n4 base1-4\n…'}
+                    className="h-32 w-full resize-none rounded border border-slate-700 bg-slate-900 p-2 font-mono text-xs text-slate-200 outline-none focus:border-sky-400"
+                  />
+                  <button
+                    onClick={applyImport}
+                    className="mt-2 rounded-full bg-sky-600 px-4 py-1 text-xs font-bold text-white hover:bg-sky-500"
+                  >
+                    Importieren
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setIoMode(null)}
+                className="mt-2 ml-2 rounded-full border border-slate-600 px-4 py-1 text-xs font-bold text-slate-300 hover:bg-slate-700"
+              >
+                Schließen
+              </button>
+            </div>
+          )}
 
           {validation && !validation.valid && (
             <ul className="rounded-lg bg-amber-500/10 p-2 text-xs text-amber-300">

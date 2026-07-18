@@ -22,6 +22,9 @@ export type TrainerEffectId =
   | 'gustOfWind'
   | 'energyRetrieval'
   | 'plusPower'
+  | 'energySearch'
+  | 'gambler'
+  | 'revive'
 
 export interface TrainerEffect {
   id: TrainerEffectId
@@ -112,6 +115,27 @@ export const TRAINER_EFFECTS: Record<TrainerEffectId, TrainerEffect> = {
     targeting: 'none',
     prompt: '',
   },
+  energySearch: {
+    id: 'energySearch',
+    label: 'Energiesuche',
+    description: 'Hole eine Basis-Energie aus deinem Deck auf die Hand und mische das Deck.',
+    targeting: 'none',
+    prompt: '',
+  },
+  gambler: {
+    id: 'gambler',
+    label: 'Zocker',
+    description: 'Mische deine Hand ins Deck. Münzwurf: Kopf = 8 Karten, Zahl = 1 Karte ziehen.',
+    targeting: 'none',
+    prompt: '',
+  },
+  revive: {
+    id: 'revive',
+    label: 'Wiederbelebung',
+    description: 'Lege ein Basis-Pokémon aus deiner Ablage mit halbem Schaden auf die Bank.',
+    targeting: 'none',
+    prompt: '',
+  },
 }
 
 function normalizeName(name: string): string {
@@ -137,6 +161,12 @@ const NAME_TO_EFFECT: Record<string, TrainerEffectId> = {
   gustofwind: 'gustOfWind',
   energyretrieval: 'energyRetrieval',
   pluspower: 'plusPower',
+  energysearch: 'energySearch',
+  energiesuche: 'energySearch',
+  gambler: 'gambler',
+  zocker: 'gambler',
+  revive: 'revive',
+  wiederbelebung: 'revive',
 }
 
 /**
@@ -221,6 +251,15 @@ export function trainerIsPlayable(state: GameState, side: Side, card: CardDef): 
       return player.discard.some((c) => c.kind === 'energy' && c.isBasicEnergy)
     case 'plusPower':
       return !!player.active
+    case 'energySearch':
+      return player.deck.some((c) => c.kind === 'energy' && c.isBasicEnergy)
+    case 'gambler':
+      return player.deck.length + player.hand.length > 0
+    case 'revive':
+      return (
+        player.bench.length < 5 &&
+        player.discard.some((c) => c.kind === 'pokemon' && c.stage === 'basic')
+      )
     case 'switch':
       return !!player.active && player.bench.length > 0
     default:
