@@ -6,9 +6,10 @@ interface HandViewProps {
   selectedUid?: string | null
   playableUids: Set<string>
   onCardClick: (card: CardDef) => void
+  onZoom?: (card: CardDef) => void
 }
 
-export function HandView({ cards, selectedUid, playableUids, onCardClick }: HandViewProps) {
+export function HandView({ cards, selectedUid, playableUids, onCardClick, onZoom }: HandViewProps) {
   if (cards.length === 0) {
     return <div className="py-4 text-center text-xs text-slate-500">Keine Karten auf der Hand.</div>
   }
@@ -22,6 +23,7 @@ export function HandView({ cards, selectedUid, playableUids, onCardClick }: Hand
           selected={selectedUid === card.uid}
           dimmed={!playableUids.has(card.uid)}
           onClick={playableUids.has(card.uid) ? () => onCardClick(card) : undefined}
+          onZoom={onZoom ? () => onZoom(card) : undefined}
         />
       ))}
     </div>

@@ -4,8 +4,9 @@ import { loadPackSets, type TcgSet } from '../api/sets'
 import { DAILY_FREE_PACKS, formatTimeUntilReset, remainingFreePacks } from '../game/dailyPacks'
 import { useCollectionStore } from '../store/collectionStore'
 import type { CardDef } from '../game/types'
+import { CardZoomModal } from './CardZoomModal'
 
-function RevealedCard({ card, index }: { card: CardDef; index: number }) {
+function RevealedCard({ card, index, onZoom }: { card: CardDef; index: number; onZoom: () => void }) {
   const isHolo = card.rarity === 'Holo Rare'
   const isRare = card.rarity === 'Rare' || isHolo
   return (
@@ -23,8 +24,12 @@ function RevealedCard({ card, index }: { card: CardDef; index: number }) {
           transition={{ delay: index * 0.18 + 0.4, duration: 1.8, repeat: Infinity }}
         />
       )}
-      <div
-        className={`relative aspect-[5/7] w-full overflow-hidden rounded-lg border-2 bg-slate-800 shadow-xl ${
+      <button
+        type="button"
+        onClick={onZoom}
+        aria-label={`${card.name} vergrößern`}
+        title="Großansicht"
+        className={`relative block aspect-[5/7] w-full cursor-pointer overflow-hidden rounded-lg border-2 bg-slate-800 shadow-xl transition-transform outline-none hover:-translate-y-1 ${
           isHolo ? 'border-yellow-300' : isRare ? 'border-sky-400' : 'border-slate-700'
         }`}
       >
@@ -46,7 +51,7 @@ function RevealedCard({ card, index }: { card: CardDef; index: number }) {
         >
           {card.rarity}
         </div>
-      </div>
+      </button>
     </motion.div>
   )
 }
@@ -56,6 +61,7 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
   const [selected, setSelected] = useState<TcgSet | null>(null)
   const [opening, setOpening] = useState(false)
   const [revealed, setRevealed] = useState<CardDef[] | null>(null)
+  const [zoomCard, setZoomCard] = useState<CardDef | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
   const openSetPack = useCollectionStore((s) => s.openSetPack)
@@ -168,7 +174,7 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
           <div className="w-full">
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6" style={{ perspective: 800 }}>
               {revealed.map((card, i) => (
-                <RevealedCard key={`${card.uid}-${i}`} card={card} index={i} />
+                <RevealedCard key={`${card.uid}-${i}`} card={card} index={i} onZoom={() => setZoomCard(card)} />
               ))}
             </div>
             <div className="mt-6 flex justify-center gap-3">
@@ -204,6 +210,8 @@ export function PackOpeningScreen({ onBack }: { onBack: () => void }) {
           </div>
         </div>
       )}
+
+      <CardZoomModal card={zoomCard} onClose={() => setZoomCard(null)} />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { HandView } from './HandView'
 import { AttackPanel } from './AttackPanel'
 import { GameLog } from './GameLog'
 import { BoardPokemon } from './BoardPokemon'
+import { CardZoomModal } from './CardZoomModal'
 
 function other(side: Side): Side {
   return side === 'p1' ? 'p2' : 'p1'
@@ -22,6 +23,7 @@ export function GameBoard() {
   const myRating = useProfileStore((s) => s.stats.rating)
   const lastMatch = useProfileStore((s) => s.matchHistory[0])
   const [pendingCard, setPendingCard] = useState<CardDef | null>(null)
+  const [zoomCard, setZoomCard] = useState<CardDef | null>(null)
   const [shakeId, setShakeId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -250,7 +252,7 @@ export function GameBoard() {
             </button>
           </div>
         )}
-        <HandView cards={me.hand} playableUids={playableUids} onCardClick={handleHandCardClick} selectedUid={pendingCard?.uid} />
+        <HandView cards={me.hand} playableUids={playableUids} onCardClick={handleHandCardClick} selectedUid={pendingCard?.uid} onZoom={setZoomCard} />
       </div>
 
       {iNeedPromote && (
@@ -271,6 +273,8 @@ export function GameBoard() {
           </div>
         </div>
       )}
+
+      <CardZoomModal card={zoomCard} onClose={() => setZoomCard(null)} />
     </div>
   )
 }
