@@ -140,12 +140,24 @@ function removeFromHand(player: PlayerState, uid: string): CardDef | null {
   return card
 }
 
+/** Welche Energie-Symbole eine Karte liefert (Spezial-Energie ⇒ mehrere). */
+function energyProvides(e: EnergyCardDef): ElementType[] {
+  return e.provides ?? [e.energyType]
+}
+
+/** Gesamtzahl der Energie-Symbole an einem Pokémon (für Rückzugskosten). */
+function totalEnergySymbols(attached: EnergyCardDef[]): number {
+  return attached.reduce((sum, e) => sum + energyProvides(e).length, 0)
+}
+
 function canPayCost(attached: EnergyCardDef[], cost: ElementType[]): boolean {
   const specific = cost.filter((c) => c !== 'Colorless')
   const colorlessCount = cost.length - specific.length
-  const pool = [...attached]
+  // Alle bereitgestellten Symbole in einen Pool auflösen (Spezial-Energie
+  // liefert mehrere), dann erst die typgebundenen, dann die Farblos-Kosten decken.
+  const pool = attached.flatMap(energyProvides)
   for (const type of specific) {
-    const idx = pool.findIndex((e) => e.energyType === type)
+    const idx = pool.findIndex((sym) => sym === type)
     if (idx === -1) return false
     pool.splice(idx, 1)
   }
@@ -433,6 +445,42 @@ function applyTrainerEffect(
       log(state, side, `PlusPower: Die nächste Attacke verursacht ${player.attackBonus} Schaden mehr.`)
       break
     }
+    case 'energySearch': {
+      const idx = player.deck.findIndex((c) => c.kind === 'energy' && c.isBasicEnergy)
+      if (idx === -1) break
+      const [card] = player.deck.splice(idx, 1)
+      player.hand.push(card)
+      player.deck = shuffle(player.deck)
+      log(state, side, `Energiesuche holt ${card.name} aus dem Deck und mischt das Deck.`)
+      break
+    }
+    case 'gambler': {
+      const shuffledBack = player.hand.length
+      player.deck.push(...player.hand)
+      player.hand = []
+      player.deck = shuffle(player.deck)
+      const heads = Math.random() < 0.5
+      const drawCount = Math.min(heads ? 8 : 1, player.deck.length)
+      player.hand.push(...player.deck.splice(0, drawCount))
+      log(
+        state,
+        side,
+        `Zocker mischt ${shuffledBack} Handkarte${shuffledBack === 1 ? '' : 'n'} ins Deck – ${heads ? 'Kopf' : 'Zahl'}: ${drawCount} gezogen.`,
+      )
+      break
+    }
+    case 'revive': {
+      if (player.bench.length >= 5) break
+      const idx = player.discard.findIndex((c) => c.kind === 'pokemon' && c.stage === 'basic')
+      if (idx === -1) break
+      const [card] = player.discard.splice(idx, 1) as [PokemonCardDef]
+      const mon = makeInstance(card, state.turnNumber)
+      // Wiederbelebung: das Pokémon kommt mit halbem Schaden (auf 10 abgerundet).
+      mon.damage = Math.floor(card.hp / 2 / 10) * 10
+      player.bench.push(mon)
+      log(state, side, `Wiederbelebung legt ${card.name} mit ${mon.damage} Schaden auf die Bank.`)
+      break
+    }
   }
 }
 
@@ -547,8 +595,15 @@ export function applyAction(prev: GameState, action: GameAction): GameState {
       const benchIdx = player.bench.findIndex((m) => m.instanceId === action.benchInstanceId)
       if (benchIdx === -1) break
       const cost = topStage(player.active).retreatCost
-      if (player.active.attachedEnergy.length < cost) break
-      player.active.attachedEnergy.splice(0, cost)
+      if (totalEnergySymbols(player.active.attachedEnergy) < cost) break
+      // Rückzugskosten mit Energie bezahlen: Karten von vorne abwerfen, bis
+      // genug Symbole gedeckt sind (Spezial-Energie zählt mehrfach).
+      let toPay = cost
+      while (toPay > 0 && player.active.attachedEnergy.length > 0) {
+        const [removed] = player.active.attachedEnergy.splice(0, 1)
+        player.discard.push(removed)
+        toPay -= energyProvides(removed).length
+      }
       player.active.statuses = []
       const incoming = player.bench[benchIdx]
       player.bench.splice(benchIdx, 1)

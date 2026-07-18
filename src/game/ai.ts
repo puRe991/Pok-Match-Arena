@@ -74,6 +74,19 @@ function decideAiTrainer(state: GameState, side: Side): GameAction | null {
     if (bill) return { type: 'PLAY_TRAINER', side, handUid: bill.uid }
   }
 
+  // Energie nachlegen, wenn keine Energie auf der Hand ist.
+  const hasEnergyInHand = player.hand.some((c) => c.kind === 'energy')
+  if (!hasEnergyInHand) {
+    const energySearch = find('energySearch')
+    if (energySearch) return { type: 'PLAY_TRAINER', side, handUid: energySearch.uid }
+  }
+
+  // Bank wieder auffüllen, wenn sie dünn ist.
+  if (player.bench.length < 2) {
+    const revive = find('revive')
+    if (revive) return { type: 'PLAY_TRAINER', side, handUid: revive.uid }
+  }
+
   return null
 }
 

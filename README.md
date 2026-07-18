@@ -107,8 +107,13 @@ https://nodejs.org/, danach `node -p process.arch` prüfen (sollte `x64` oder
   Trank / Supertrank (heilen), Vollheilung (Zustände entfernen), Wechsel &
   Windstoß (Aktives Pokémon tauschen – eigenes bzw. gegnerisches),
   Pokémon-Center (alle heilen), Energie-Entzug (gegnerische Energie abwerfen),
-  Energie-Rückgewinnung und PlusPower (+10 Schaden). Karten mit Ziel öffnen eine
-  Zielauswahl auf dem Spielbrett; die CPU spielt sie ebenfalls situativ.
+  Energie-Rückgewinnung, PlusPower (+10 Schaden), Energiesuche (Basis-Energie
+  aus dem Deck ziehen), Zocker (Hand ins Deck mischen, Münzwurf: 8 bzw. 1 ziehen)
+  und Wiederbelebung (Basis-Pokémon aus der Ablage auf die Bank). Karten mit Ziel
+  öffnen eine Zielauswahl auf dem Spielbrett; die CPU spielt sie ebenfalls situativ.
+- **Spezial-Energie**: Die Doppelte Farblos-Energie (liefert 2 Farblos-Symbole)
+  ist deck-legal, wird in Packs gesammelt und von der Kosten- und Rückzugs-Engine
+  korrekt verrechnet.
 
 ### Esports-Liga & Orden (Ranglisten-System)
 - **Divisionen = Regionen**: Kanto → Paldea → Meister-Liga. Jede Region ist
@@ -147,9 +152,11 @@ Pokémon-TCG-Regeln bewusst vereinfacht:
 
 - **Trainer-Karten** sind nur spielbar (und deck-legal), wenn die Regel-Engine
   ihren Effekt kennt – aktuell die o. g. Auswahl klassischer „Base"-Ära-Trainer,
-  erkannt am Kartennamen (`src/game/trainers.ts`). Alle übrigen Trainer sowie
-  **Spezial-Energie** werden gesammelt und im Pack-Opening angezeigt, sind im
-  Deck-Builder aber (noch) nicht auswählbar.
+  erkannt am Kartennamen (`src/game/trainers.ts`). Alle übrigen Trainer werden
+  gesammelt und im Pack-Opening angezeigt, sind im Deck-Builder aber (noch) nicht
+  auswählbar. Von der **Spezial-Energie** ist aktuell die Doppelte Farblos-Energie
+  implementiert und deck-legal (`src/game/normalize.ts`); weitere Spezial-Energie
+  wird gesammelt, ist aber noch nicht auswählbar.
 - **Set-Auswahl** ist auf die klassischen „Base“-Ära-Sets (Base Set, Jungle,
   Fossil, Base Set 2, Team Rocket, Gym Heroes) beschränkt, da diese ein
   einfaches 4-stufiges Rarity-System (Common/Uncommon/Rare/Holo Rare) und

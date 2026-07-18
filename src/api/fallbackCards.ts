@@ -128,6 +128,22 @@ function energy(id: string, type: ElementType): EnergyCardDef {
   }
 }
 
+const doubleColorlessEnergy: EnergyCardDef = {
+  kind: 'energy',
+  id: 'offline-96',
+  uid: '',
+  name: 'Double Colorless Energy',
+  setId: 'offline',
+  setName: 'Offline-Kartensatz',
+  number: '96',
+  rarity: 'Uncommon',
+  energyType: 'Colorless',
+  isBasicEnergy: false,
+  provides: ['Colorless', 'Colorless'],
+  imageSmall: 'https://images.pokemontcg.io/base1/96.png',
+  imageLarge: 'https://images.pokemontcg.io/base1/96_hires.png',
+}
+
 export const FALLBACK_ENERGY: EnergyCardDef[] = [
   energy('97', 'Fighting'),
   energy('98', 'Fire'),
@@ -135,6 +151,7 @@ export const FALLBACK_ENERGY: EnergyCardDef[] = [
   energy('100', 'Lightning'),
   energy('101', 'Psychic'),
   energy('102', 'Water'),
+  doubleColorlessEnergy,
 ]
 
 function trainer(id: string, name: string, text: string, rarity: Rarity = 'Common'): TrainerCardDef {
@@ -165,6 +182,9 @@ export const FALLBACK_TRAINERS: TrainerCardDef[] = [
   trainer('83', 'Full Heal', 'Remove all Special Conditions from 1 of your Pokémon.'),
   trainer('85', 'Pokémon Center', 'Remove all damage counters from your Pokémon, then discard their Energy.', 'Uncommon'),
   trainer('81', 'Energy Retrieval', 'Return up to 2 basic Energy cards from your discard pile to your hand.', 'Uncommon'),
+  trainer('82', 'Energy Search', 'Search your deck for a basic Energy card and put it into your hand.'),
+  trainer('60', 'Gambler', 'Shuffle your hand into your deck. Flip a coin. Heads: draw 8. Tails: draw 1.'),
+  trainer('89', 'Revive', 'Put a Basic Pokémon from your discard pile onto your Bench with half its HP as damage.', 'Uncommon'),
 ]
 
 export const FALLBACK_POOL = [...FALLBACK_POKEMON, ...FALLBACK_ENERGY, ...FALLBACK_TRAINERS]

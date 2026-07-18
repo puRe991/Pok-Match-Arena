@@ -24,7 +24,9 @@ describe('openPack', () => {
       { ...pokemon[0], id: 'unc-1', rarity: 'Uncommon' as const },
       { ...pokemon[0], id: 'rare-1', rarity: 'Rare' as const },
       { ...pokemon[0], id: 'holo-1', rarity: 'Holo Rare' as const },
-      ...FALLBACK_POOL.filter((c) => c.kind === 'energy'),
+      // Nur Basis-Energie: der garantierte Energie-Slot zieht ausschließlich
+      // Basis-Energie (Spezial-Energie wie DCE kommt über den Uncommon-Slot).
+      ...FALLBACK_POOL.filter((c) => c.kind === 'energy' && c.isBasicEnergy),
     ]
     const pool = poolFrom(cards)
     const pack = openPack(pool)
