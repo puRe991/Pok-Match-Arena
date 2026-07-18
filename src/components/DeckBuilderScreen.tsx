@@ -4,6 +4,7 @@ import { cardLimit, validateDeck } from '../game/deckLegality'
 import { isDeckLegal } from '../game/normalize'
 import type { CardDef } from '../game/types'
 import { CardView } from './CardView'
+import { CardZoomModal } from './CardZoomModal'
 
 function kindLabel(card: CardDef): string {
   if (card.kind === 'pokemon') return card.pokemonType
@@ -25,6 +26,7 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
   const [draft, setDraft] = useState<Record<string, number>>(decks[0]?.cardCounts ?? {})
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'pokemon' | 'energy'>('all')
+  const [zoomCard, setZoomCard] = useState<CardDef | null>(null)
 
   const editingDeck = decks.find((d) => d.id === editingId)
 
@@ -175,7 +177,13 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
                   const canAdd = used < entry.count && used < limit
                   return (
                     <div key={entry.card.id} className="flex flex-col items-center gap-1">
-                      <CardView card={entry.card} size="sm" onClick={canAdd ? () => addCard(entry.card.id) : undefined} dimmed={!canAdd} />
+                      <CardView
+                        card={entry.card}
+                        size="sm"
+                        onClick={canAdd ? () => addCard(entry.card.id) : undefined}
+                        onZoom={() => setZoomCard(entry.card)}
+                        dimmed={!canAdd}
+                      />
                       <span className="text-[9px] text-slate-400">
                         {used}/{entry.count} {kindLabel(entry.card)}
                       </span>
@@ -195,7 +203,7 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
               <div className="grid max-h-[60vh] grid-cols-3 gap-2 overflow-y-auto rounded-lg bg-black/20 p-2 sm:grid-cols-4">
                 {deckEntries.map((entry) => (
                   <div key={entry.id} className="flex flex-col items-center gap-1">
-                    <CardView card={entry.card} size="sm" onClick={() => removeCard(entry.id)} />
+                    <CardView card={entry.card} size="sm" onClick={() => removeCard(entry.id)} onZoom={() => setZoomCard(entry.card)} />
                     <span className="text-[9px] text-slate-400">{entry.count}x</span>
                   </div>
                 ))}
@@ -209,6 +217,8 @@ export function DeckBuilderScreen({ onBack }: { onBack: () => void }) {
           </div>
         </>
       )}
+
+      <CardZoomModal card={zoomCard} onClose={() => setZoomCard(null)} />
     </div>
   )
 }

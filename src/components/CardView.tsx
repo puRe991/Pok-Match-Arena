@@ -30,6 +30,7 @@ interface CardViewProps {
   selected?: boolean
   dimmed?: boolean
   onClick?: () => void
+  onZoom?: () => void
   className?: string
 }
 
@@ -39,35 +40,49 @@ const SIZE_CLASSES: Record<string, string> = {
   lg: 'w-32 sm:w-40',
 }
 
-export function CardView({ card, size = 'md', selected, dimmed, onClick, className }: CardViewProps) {
+export function CardView({ card, size = 'md', selected, dimmed, onClick, onZoom, className }: CardViewProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className={clsx(
-        SIZE_CLASSES[size],
-        'relative aspect-[5/7] shrink-0 overflow-hidden rounded-lg border-2 bg-slate-800 shadow-md transition-transform outline-none',
-        selected ? 'border-yellow-400 -translate-y-2 shadow-yellow-400/50 shadow-lg' : 'border-slate-700',
-        onClick && 'cursor-pointer hover:-translate-y-1 hover:border-sky-400',
-        dimmed && 'opacity-40 grayscale',
-        className,
+    <div className={clsx('relative shrink-0', SIZE_CLASSES[size], className)}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!onClick}
+        className={clsx(
+          'relative block aspect-[5/7] w-full overflow-hidden rounded-lg border-2 bg-slate-800 shadow-md transition-transform outline-none',
+          selected ? 'border-yellow-400 -translate-y-2 shadow-yellow-400/50 shadow-lg' : 'border-slate-700',
+          onClick && 'cursor-pointer hover:-translate-y-1 hover:border-sky-400',
+          dimmed && 'opacity-40 grayscale',
+        )}
+        title={card.name}
+      >
+        <img
+          src={card.imageSmall}
+          alt={card.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+          }}
+        />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 truncate bg-black/60 px-1 py-0.5 text-[9px] font-semibold text-white">
+          {card.name}
+        </div>
+      </button>
+      {onZoom && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onZoom()
+          }}
+          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-xs text-white opacity-80 shadow transition-opacity hover:bg-black/80 hover:opacity-100"
+          aria-label={`${card.name} vergrößern`}
+          title="Großansicht"
+        >
+          🔍
+        </button>
       )}
-      title={card.name}
-    >
-      <img
-        src={card.imageSmall}
-        alt={card.name}
-        className="h-full w-full object-cover"
-        loading="lazy"
-        onError={(e) => {
-          ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-        }}
-      />
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 truncate bg-black/60 px-1 py-0.5 text-[9px] font-semibold text-white">
-        {card.name}
-      </div>
-    </button>
+    </div>
   )
 }
 
